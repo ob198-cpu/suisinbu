@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#173f70">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>CDP北海道｜音声案件発生報告</title>
+<style>
+:root{--navy:#173f70;--blue:#2b72b5;--green:#39866e;--ink:#26384d;--muted:#748294;--line:#dbe4ed;--bg:#f3f7fb;--red:#b12630}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}.wrap{max-width:800px;margin:auto;padding:18px 12px 40px}.top{background:var(--navy);color:#fff;border-radius:14px 14px 0 0;padding:22px}.top h1{font-size:21px;margin:0}.top p{font-size:12px;color:#d6e6f4;margin:6px 0 0}.pill{display:inline-block;margin-top:13px;background:#fff2cb;color:#674b08;border-radius:99px;padding:4px 9px;font-size:11px;font-weight:700}.card{background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 14px 14px;padding:22px;box-shadow:0 10px 28px #173f7014}.voice{border:1px solid #b7d6eb;background:#f2f9fe;border-radius:10px;padding:14px;margin-bottom:18px}.voice h2{font-size:15px;margin:0 0 4px;color:var(--blue)}.voice p{font-size:12px;margin:0 0 10px;color:var(--muted)}.voice-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.voice-status{font-size:12px;color:var(--muted);min-height:18px}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:9px 13px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.green{background:var(--green);border-color:var(--green);color:#fff}.btn.stop{border-color:#e2a4a8;color:var(--red);background:#fff7f7}.btn:disabled{opacity:.5;cursor:not-allowed}.notice{background:#fff8e7;border:1px solid #efd18b;border-radius:9px;padding:11px 13px;font-size:12px;margin-bottom:18px}.notice strong{display:block;color:#795907;margin-bottom:3px}.form{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field.full{grid-column:1/-1}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:4px}.req{color:var(--red);font-size:10px;margin-left:5px}.hint{color:var(--muted);font-weight:400;font-size:10px;margin-left:6px}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;font-size:13px;background:#fff}.field textarea{min-height:115px;resize:vertical}.field.error input,.field.error textarea{border-color:var(--red);background:#fffafa}.err{display:block;color:var(--red);font-size:11px;min-height:16px;margin-top:3px}.rules{border-top:1px solid var(--line);margin-top:18px;padding-top:14px;color:var(--muted);font-size:11px}.rules ul{margin:5px 0 0;padding-left:18px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.result{display:none;margin-top:18px;padding:15px;border:1px solid #b8ddc9;background:#effaf3;border-radius:9px}.result.show{display:block}.result h2{font-size:16px;color:#267451;margin:0 0 7px}.result p{font-size:12px;margin:0}.footer{text-align:center;color:var(--muted);font-size:11px;margin-top:12px}@media(max-width:560px){.wrap{padding:8px}.top{padding:18px}.card{padding:16px}.form{grid-template-columns:1fr}.field.full{grid-column:auto}.actions{display:grid;grid-template-columns:1fr 1fr}.actions .btn{width:100%}}
+</style>
+<style>
+/* スマートフォン操作用の追加調整 */
+html{-webkit-text-size-adjust:100%}
+@media(max-width:560px){
+  body{min-width:320px}
+  .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .top h1{font-size:20px}
+  .top p{font-size:13px}
+  .voice{padding:16px}
+  .voice h2{font-size:17px}
+  .voice p,.voice-status{font-size:13px}
+  .voice-line{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .voice-line .voice-status{grid-column:1/-1}
+  .btn{min-height:48px;padding:12px 10px;font-size:14px;touch-action:manipulation}
+  .field input,.field select,.field textarea{font-size:16px;min-height:48px}
+  .field textarea{min-height:140px}
+  .actions{position:fixed;left:0;right:0;bottom:0;z-index:10;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#ffffffed;border-top:1px solid var(--line);box-shadow:0 -4px 15px #173f7014}
+  .actions .btn{flex:1}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header class="top"><h1>音声で案件発生を報告</h1><p>質問に声で答えると、案件受付フォームへ自動入力します。</p><span class="pill">試験版・音声入力対応</span></header>
+<section class="card">
+<div class="voice"><h2>音声インタビュー</h2><p>マイクを許可し、質問に一つずつ答えてください。最後に画面で内容を確認してから報告します。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">音声で順番に回答</button><button type="button" class="btn stop" id="voiceStop" disabled>音声入力を停止</button><span class="voice-status" id="voiceStatus">準備完了</span></div></div>
+<div class="notice"><strong>入力時間の目安：1〜3分</strong>音声認識が使えない環境では、下のフォームへ直接入力できます。音声の聞き間違いがあるため、送信前に必ず確認してください。</div>
+<form id="reportForm" novalidate>
+<div class="form">
+<div class="field" data-field="orgName"><label for="orgName">会社名・顧客名<span class="req">必須</span></label><input id="orgName" placeholder="例：サンプル建設株式会社"><span class="err"></span></div>
+<div class="field" data-field="channel"><label for="channel">発生経路</label><select id="channel"><option>問い合わせ</option><option>紹介</option><option>既存顧客</option><option>営業活動</option><option>不明</option></select><span class="err"></span></div>
+<div class="field" data-field="desiredTime"><label for="desiredTime">希望時期<span class="hint">分かる範囲で可</span></label><input id="desiredTime" placeholder="例：9月中／未定"><span class="err"></span></div>
+<div class="field" data-field="urgency"><label for="urgency">緊急度</label><select id="urgency"><option>通常</option><option>高</option><option>至急</option></select><span class="err"></span></div>
+<div class="field" data-field="contactInfo"><label for="contactInfo">把握済みの連絡情報<span class="hint">部署名など</span></label><input id="contactInfo" placeholder="例：営業部 佐藤様"><span class="err"></span></div>
+<div class="field" data-field="budget"><label for="budget">予算の把握状況</label><select id="budget"><option>未確認</option><option>不明</option><option>把握している</option></select><span class="err"></span></div>
+<div class="field full" data-field="summary"><label for="summary">相談内容<span class="req">必須</span></label><textarea id="summary" placeholder="お客様からの相談・問い合わせ内容"></textarea><span class="err"></span></div>
+</div>
+<div class="rules"><strong>登録後の流れ</strong><ul><li>音声内容をフォームへ仮入力します。</li><li>社員が内容を確認してから報告します。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
+<div class="actions"><button type="button" class="btn" id="clearBtn">入力をクリア</button><button type="submit" class="btn green">内容を確認して報告</button></div>
+</form><div class="result" id="result"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：推進部確認待ち</p></div>
+</section><p class="footer">CDP北海道 顧客案件営業管理システム｜R0画面試作｜実データ保存・通知は行いません</p>
+</main>
+<script>
+const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus");let recognition=null,voiceIndex=-1;const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','分かっている連絡先や部署名を教えてください。なければなしと答えてください'],['budget','予算の把握状況を、未確認、不明、把握しているのいずれかで答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];function say(t){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';speechSynthesis.speak(u)}}function setStatus(t){status.textContent=t}function pick(key,text){const el=$(key);if(el.tagName==='SELECT'){const hit=[...el.options].find(o=>text.includes(o.value));if(hit)el.value=hit.value;else el.value=text}else el.value=text==='なし'?'':text}function startQuestion(){voiceIndex++;if(voiceIndex>=voiceQuestions.length){stopVoice();setStatus('音声入力が完了しました。内容を確認してください。');return}const [key,q]=voiceQuestions[voiceIndex];setStatus((voiceIndex+1)+'/'+voiceQuestions.length+'：'+q);say(q);setTimeout(()=>{try{recognition.start()}catch(e){}},650)}function stopVoice(){if(recognition){try{recognition.stop()}catch(e){}}$('voiceStop').disabled=true;$('voiceStart').disabled=false}function startVoice(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setStatus('このブラウザは音声認識に対応していません。直接入力してください。');return}recognition=new SR();recognition.lang='ja-JP';recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=e=>{const text=e.results[0][0].transcript;pick(voiceQuestions[voiceIndex][0],text);setStatus('認識結果：「'+text+'」');setTimeout(startQuestion,450)};recognition.onerror=e=>{setStatus('聞き取りに失敗しました。もう一度答えてください。');setTimeout(()=>{try{recognition.start()}catch(x){}},700)};recognition.onend=()=>{};voiceIndex=-1;$('voiceStart').disabled=true;$('voiceStop').disabled=false;startQuestion()}$('voiceStart').addEventListener('click',startVoice);$('voiceStop').addEventListener('click',()=>{stopVoice();setStatus('停止しました。入力内容を確認できます。')});function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');x.querySelector('.err').textContent=''})}form.addEventListener('submit',e=>{e.preventDefault();clearErrors();let ok=true;if(!$('orgName').value.trim()){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}if(!$('summary').value.trim()){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を入力してください。';ok=false}if(!ok)return;$('receiptNo').textContent='INTAKE-2026-'+String(Math.floor(Math.random()*9000)+1000);$('result').classList.add('show');$('result').scrollIntoView({behavior:'smooth',block:'nearest'})});$('clearBtn').addEventListener('click',()=>{form.reset();clearErrors();$('result').classList.remove('show');voiceIndex=-1;stopVoice();setStatus('準備完了')});
+</script>
+</body></html>
+
