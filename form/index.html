@@ -42,8 +42,8 @@ html{-webkit-text-size-adjust:100%}
 <div class="field" data-field="channel"><label for="channel">発生経路</label><select id="channel"><option>問い合わせ</option><option>紹介</option><option>既存顧客</option><option>営業活動</option><option>不明</option></select><span class="err"></span></div>
 <div class="field" data-field="desiredTime"><label for="desiredTime">希望時期<span class="hint">分かる範囲で可</span></label><input id="desiredTime" placeholder="例：9月中／未定"><span class="err"></span></div>
 <div class="field" data-field="urgency"><label for="urgency">緊急度</label><select id="urgency"><option>通常</option><option>高</option><option>至急</option></select><span class="err"></span></div>
-<div class="field" data-field="contactInfo"><label for="contactInfo">把握済みの連絡情報<span class="hint">部署名など</span></label><input id="contactInfo" placeholder="例：営業部 佐藤様"><span class="err"></span></div>
-<div class="field" data-field="budget"><label for="budget">予算の把握状況</label><select id="budget"><option>未確認</option><option>不明</option><option>把握している</option></select><span class="err"></span></div>
+<div class="field" data-field="contactInfo"><label for="contactInfo">先方担当（分かる範囲）<span class="hint">部署・役職・氏名・連絡先</span></label><input id="contactInfo" placeholder="例：営業部 佐藤様／電話番号"><span class="err"></span></div>
+<div class="field" data-field="budget"><label for="budget">顧客予算の確認状況</label><select id="budget"><option>顧客へ未確認</option><option>顧客に確認したが不明</option><option>予算額を確認済み</option></select><span class="err"></span></div>
 <div class="field full" data-field="summary"><label for="summary">相談内容<span class="req">必須</span></label><textarea id="summary" placeholder="お客様からの相談・問い合わせ内容"></textarea><span class="err"></span></div>
 </div>
 <div class="rules"><strong>登録後の流れ</strong><ul><li>音声内容をフォームへ仮入力します。</li><li>社員が内容を確認してから報告します。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
@@ -54,7 +54,7 @@ html{-webkit-text-size-adjust:100%}
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus");
 let recognition=null,voiceIndex=-1;
-const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','分かっている連絡先や部署名を教えてください。なければなしと答えてください'],['budget','予算の把握状況を、未確認、不明、把握しているのいずれかで答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];
+const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','先方担当について、分かっている部署、役職、氏名、連絡先を教えてください。なければなしと答えてください'],['budget','顧客予算の確認状況を、顧客へ未確認、顧客に確認したが不明、予算額を確認済みのいずれかで答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];
 function say(t){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';speechSynthesis.speak(u)}}
 function setStatus(t){status.textContent=t}
 function pick(key,text){const el=$(key);if(el.tagName==='SELECT'){const hit=[...el.options].find(o=>text.includes(o.value));if(hit)el.value=hit.value;else el.value=text}else el.value=text==='なし'?'':text}
