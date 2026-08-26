@@ -47,11 +47,39 @@ html{-webkit-text-size-adjust:100%}
 <div class="field full" data-field="summary"><label for="summary">相談内容<span class="req">必須</span></label><textarea id="summary" placeholder="お客様からの相談・問い合わせ内容"></textarea><span class="err"></span></div>
 </div>
 <div class="rules"><strong>登録後の流れ</strong><ul><li>音声内容をフォームへ仮入力します。</li><li>社員が内容を確認してから報告します。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
-<div class="actions"><button type="button" class="btn" id="clearBtn">入力をクリア</button><button type="submit" class="btn green">内容を確認して報告</button></div>
+<div class="actions"><button type="button" class="btn" id="clearBtn">入力をクリア</button><button type="submit" class="btn green" id="submitBtn">内容を確認して報告</button></div>
 </form><div class="result" id="result"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：推進部確認待ち</p></div>
-</section><p class="footer">CDP北海道 顧客案件営業管理システム｜R0画面試作｜実データ保存・通知は行いません</p>
+</section><p class="footer">送信内容は、この端末の顧客・案件・営業管理システムへ案件受付として保存されます</p>
 </main>
 <script>
-const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus");let recognition=null,voiceIndex=-1;const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','分かっている連絡先や部署名を教えてください。なければなしと答えてください'],['budget','予算の把握状況を、未確認、不明、把握しているのいずれかで答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];function say(t){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';speechSynthesis.speak(u)}}function setStatus(t){status.textContent=t}function pick(key,text){const el=$(key);if(el.tagName==='SELECT'){const hit=[...el.options].find(o=>text.includes(o.value));if(hit)el.value=hit.value;else el.value=text}else el.value=text==='なし'?'':text}function startQuestion(){voiceIndex++;if(voiceIndex>=voiceQuestions.length){stopVoice();setStatus('音声入力が完了しました。内容を確認してください。');return}const [key,q]=voiceQuestions[voiceIndex];setStatus((voiceIndex+1)+'/'+voiceQuestions.length+'：'+q);say(q);setTimeout(()=>{try{recognition.start()}catch(e){}},650)}function stopVoice(){if(recognition){try{recognition.stop()}catch(e){}}$('voiceStop').disabled=true;$('voiceStart').disabled=false}function startVoice(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setStatus('このブラウザは音声認識に対応していません。直接入力してください。');return}recognition=new SR();recognition.lang='ja-JP';recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=e=>{const text=e.results[0][0].transcript;pick(voiceQuestions[voiceIndex][0],text);setStatus('認識結果：「'+text+'」');setTimeout(startQuestion,450)};recognition.onerror=e=>{setStatus('聞き取りに失敗しました。もう一度答えてください。');setTimeout(()=>{try{recognition.start()}catch(x){}},700)};recognition.onend=()=>{};voiceIndex=-1;$('voiceStart').disabled=true;$('voiceStop').disabled=false;startQuestion()}$('voiceStart').addEventListener('click',startVoice);$('voiceStop').addEventListener('click',()=>{stopVoice();setStatus('停止しました。入力内容を確認できます。')});function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');x.querySelector('.err').textContent=''})}form.addEventListener('submit',e=>{e.preventDefault();clearErrors();let ok=true;if(!$('orgName').value.trim()){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}if(!$('summary').value.trim()){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を入力してください。';ok=false}if(!ok)return;$('receiptNo').textContent='INTAKE-2026-'+String(Math.floor(Math.random()*9000)+1000);$('result').classList.add('show');$('result').scrollIntoView({behavior:'smooth',block:'nearest'})});$('clearBtn').addEventListener('click',()=>{form.reset();clearErrors();$('result').classList.remove('show');voiceIndex=-1;stopVoice();setStatus('準備完了')});
+const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus");
+let recognition=null,voiceIndex=-1;
+const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','分かっている連絡先や部署名を教えてください。なければなしと答えてください'],['budget','予算の把握状況を、未確認、不明、把握しているのいずれかで答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];
+function say(t){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';speechSynthesis.speak(u)}}
+function setStatus(t){status.textContent=t}
+function pick(key,text){const el=$(key);if(el.tagName==='SELECT'){const hit=[...el.options].find(o=>text.includes(o.value));if(hit)el.value=hit.value;else el.value=text}else el.value=text==='なし'?'':text}
+function startQuestion(){voiceIndex++;if(voiceIndex>=voiceQuestions.length){stopVoice();setStatus('音声入力が完了しました。内容を確認してください。');return}const [key,q]=voiceQuestions[voiceIndex];setStatus((voiceIndex+1)+'/'+voiceQuestions.length+'：'+q);say(q);setTimeout(()=>{try{recognition.start()}catch(e){}},650)}
+function stopVoice(){if(recognition){try{recognition.stop()}catch(e){}}$('voiceStop').disabled=true;$('voiceStart').disabled=false}
+function startVoice(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setStatus('このブラウザは音声認識に対応していません。直接入力してください。');return}recognition=new SR();recognition.lang='ja-JP';recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=e=>{const text=e.results[0][0].transcript;pick(voiceQuestions[voiceIndex][0],text);setStatus('認識結果：「'+text+'」');setTimeout(startQuestion,450)};recognition.onerror=()=>{setStatus('聞き取りに失敗しました。もう一度答えてください。');setTimeout(()=>{try{recognition.start()}catch(e){}},700)};recognition.onend=()=>{};voiceIndex=-1;$('voiceStart').disabled=true;$('voiceStop').disabled=false;startQuestion()}
+function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');x.querySelector('.err').textContent=''})}
+function requestId(){return window.crypto&&window.crypto.randomUUID?'external-'+window.crypto.randomUUID():'external-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e9).toString(36)}
+function submittedAt(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+form.addEventListener('submit',e=>{
+  e.preventDefault();clearErrors();let ok=true;
+  const orgName=$('orgName').value.trim(),summary=$('summary').value.trim();
+  if(!orgName){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}
+  if(!summary){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を入力してください。';ok=false}
+  else if(summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を5文字以上で入力してください。';ok=false}
+  if(!ok)return;
+  const envelope={version:1,requestId:requestId(),submittedAt:submittedAt(),payload:{orgName,channel:$('channel').value,desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budget').value,summary}};
+  const isLocalOutput=decodeURIComponent(location.pathname).includes('CDP北海道_案件発生報告フォーム_音声対応');
+  const targetPath=isLocalOutput?'../CDP北海道_顧客案件営業管理システム_Ver1.0_実行版/index.html':'../index.html';
+  const target=new URL(targetPath,location.href);target.searchParams.set('intake',JSON.stringify(envelope));
+  const button=$('submitBtn');button.disabled=true;button.textContent='本体システムへ登録中…';setStatus('送信内容を本体システムへ引き渡しています。');
+  location.assign(target.href);
+});
+$('voiceStart').addEventListener('click',startVoice);
+$('voiceStop').addEventListener('click',()=>{stopVoice();setStatus('停止しました。入力内容を確認できます。')});
+$('clearBtn').addEventListener('click',()=>{form.reset();clearErrors();$('result').classList.remove('show');voiceIndex=-1;stopVoice();setStatus('準備完了')});
 </script>
 </body></html>
