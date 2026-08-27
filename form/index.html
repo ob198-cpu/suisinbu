@@ -38,6 +38,8 @@ html{-webkit-text-size-adjust:100%}
 <div class="notice"><strong>入力時間の目安：1〜3分</strong>音声認識が使えない環境では、下のフォームへ直接入力できます。音声の聞き間違いがあるため、送信前に必ず確認してください。</div>
 <form id="reportForm" novalidate>
 <div class="form">
+<div class="field" data-field="reporterName"><label for="reporterName">報告者（氏名）<span class="req">必須</span></label><input id="reporterName" autocomplete="name" placeholder="例：山田 太郎"><span class="err"></span></div>
+<div class="field" data-field="reporterDepartment"><label for="reporterDepartment">部署名<span class="hint">所属部署</span></label><input id="reporterDepartment" placeholder="例：営業部"><span class="err"></span></div>
 <div class="field" data-field="orgName"><label for="orgName">会社名・顧客名<span class="req">必須</span></label><input id="orgName" placeholder="例：サンプル建設株式会社"><span class="err"></span></div>
 <div class="field" data-field="channel"><label for="channel">発生経路</label><select id="channel"><option>問い合わせ</option><option>紹介</option><option>既存顧客</option><option>営業活動</option><option>不明</option></select><span class="err"></span></div>
 <div class="field" data-field="desiredTime"><label for="desiredTime">希望時期<span class="hint">分かる範囲で可</span></label><input id="desiredTime" placeholder="例：9月中／未定"><span class="err"></span></div>
@@ -46,15 +48,15 @@ html{-webkit-text-size-adjust:100%}
 <div class="field" data-field="budget"><label for="budget">想定予算<span class="hint">分かる範囲で可</span></label><input id="budget" placeholder="例：約300万円／未確認"><span class="err"></span></div>
 <div class="field full" data-field="summary"><label for="summary">相談内容<span class="req">必須</span></label><textarea id="summary" placeholder="お客様からの相談・問い合わせ内容"></textarea><span class="err"></span></div>
 </div>
-<div class="rules"><strong>登録後の流れ</strong><ul><li>音声内容をフォームへ仮入力します。</li><li>社員が内容を確認してから報告します。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
+<div class="rules"><strong>登録後の流れ</strong><ul><li>送信内容は渋谷さんの案件受付に届きます。</li><li>確認事項がある場合は、案件内で報告者とやり取りします。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
 <div class="actions"><button type="button" class="btn" id="clearBtn">入力をクリア</button><button type="submit" class="btn green" id="submitBtn">内容を確認して報告</button></div>
-</form><div class="result" id="result"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：推進部確認待ち</p></div>
+</form><div class="result" id="result"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：渋谷確認待ち</p></div>
 </section><p class="footer">送信内容は、この端末の顧客・案件・営業管理システムへ案件受付として保存されます</p>
 </main>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus");
 let recognition=null,voiceIndex=-1;
-const voiceQuestions=[['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','先方担当者の部署、役職、氏名、連絡先を、分かる範囲で教えてください。分からなければ未確認と答えてください'],['budget','想定予算額を教えてください。分からなければ未確認と答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];
+const voiceQuestions=[['reporterName','報告者のお名前を教えてください'],['reporterDepartment','所属部署を教えてください'],['orgName','会社名または顧客名を教えてください'],['channel','発生経路を、問い合わせ、紹介、既存顧客、営業活動、不明のいずれかで答えてください'],['desiredTime','希望時期を教えてください。分からなければ未定と答えてください'],['urgency','緊急度を、通常、高、至急のいずれかで答えてください'],['contactInfo','先方担当者の部署、役職、氏名、連絡先を、分かる範囲で教えてください。分からなければ未確認と答えてください'],['budget','想定予算額を教えてください。分からなければ未確認と答えてください'],['summary','相談内容を、できるだけ具体的に教えてください']];
 function say(t){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';speechSynthesis.speak(u)}}
 function setStatus(t){status.textContent=t}
 function pick(key,text){const el=$(key);if(el.tagName==='SELECT'){const hit=[...el.options].find(o=>text.includes(o.value));if(hit)el.value=hit.value;else el.value=text}else el.value=text==='なし'?'':text}
@@ -66,12 +68,13 @@ function requestId(){return window.crypto&&window.crypto.randomUUID?'external-'+
 function submittedAt(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
 form.addEventListener('submit',e=>{
   e.preventDefault();clearErrors();let ok=true;
-  const orgName=$('orgName').value.trim(),summary=$('summary').value.trim();
+  const reporterName=$('reporterName').value.trim(),orgName=$('orgName').value.trim(),summary=$('summary').value.trim();
+  if(!reporterName){document.querySelector('[data-field="reporterName"]').classList.add('error');document.querySelector('[data-field="reporterName"] .err').textContent='報告者の氏名を入力してください。';ok=false}
   if(!orgName){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}
   if(!summary){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を入力してください。';ok=false}
   else if(summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='相談内容を5文字以上で入力してください。';ok=false}
   if(!ok)return;
-  const envelope={version:1,requestId:requestId(),submittedAt:submittedAt(),payload:{orgName,channel:$('channel').value,desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budget').value,summary}};
+  const envelope={version:1,requestId:requestId(),submittedAt:submittedAt(),payload:{reporterName,reporterDepartment:$('reporterDepartment').value.trim(),orgName,channel:$('channel').value,desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budget').value,summary}};
   const isLocalOutput=decodeURIComponent(location.pathname).includes('CDP北海道_案件発生報告フォーム_音声対応');
   const targetPath=isLocalOutput?'../CDP北海道_顧客案件営業管理システム_Ver1.0_実行版/index.html':'../index.html';
   const target=new URL(targetPath,location.href);target.searchParams.set('intake',JSON.stringify(envelope));
