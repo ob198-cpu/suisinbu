@@ -44,6 +44,7 @@
 .workflow-detail-banner-title{flex:1;overflow:hidden}.workflow-detail-case-inline{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dbe9f5;font-size:13px;font-weight:700}.workflow-detail-banner-actions{display:flex;align-items:center;gap:8px;flex:none}.workflow-detail-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:72px;min-height:36px;border:1px solid #fff;border-radius:7px;background:#fff;color:var(--navy);padding:7px 13px;font-size:13px;font-weight:900;line-height:1;white-space:nowrap}.workflow-detail-toggle:hover{background:var(--blue-pale)}.workflow-detail-toggle:focus-visible{outline:3px solid #a9d4f2;outline-offset:2px}.workflow-detail-body[hidden]{display:none!important}.workflow-detail-footer{display:flex;justify-content:flex-end;padding:0 12px 12px;background:#fff}.workflow-detail-footer .btn{min-width:110px}
 @media(max-width:640px){.workflow-detail-banner-title>strong,.workflow-detail-stage{display:none}.workflow-detail-case-inline{font-size:13px}.workflow-detail-toggle{min-width:64px;padding:7px 11px}}
 .workflow-table tbody tr.workflow-inline-detail-row{cursor:default}
+.workflow-row-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:48px;min-height:28px;border:1px solid #8fb8d6;border-radius:14px;background:#fff;color:var(--blue);padding:4px 9px;font-size:11px;font-weight:900;line-height:1;white-space:nowrap}.workflow-row-toggle:hover{background:var(--blue-pale)}.workflow-row-toggle[aria-expanded="true"]{border-color:var(--navy);background:var(--navy);color:#fff}.workflow-row-toggle:focus-visible{outline:3px solid #a9d4f2;outline-offset:2px}
 .workflow-table tbody tr.workflow-inline-detail-row>td{position:relative;top:-6px;padding:0!important;background:#fff!important;border:2px solid #79acd1!important;border-top:0!important;border-radius:0 0 12px 12px!important;box-shadow:0 10px 22px rgba(18,59,102,.12)}
 .workflow-table tbody tr.workflow-inline-detail-row:hover>td{background:#fff!important}
 .workflow-inline-detail-row .workflow-detail{margin:0;border:0;border-radius:0 0 10px 10px;box-shadow:none;overflow:hidden}
@@ -301,18 +302,20 @@ function renderWorkflowTable(){
   body.replaceChildren(...matched.map(item=>{
     const open=item.id===expandedWorkflowCaseId,row=document.createElement('tr');
     row.dataset.workflowCase=item.id;
-    row.tabIndex=0;
     row.classList.toggle('selected',open);
-    row.setAttribute('aria-selected',String(open));
-    row.setAttribute('aria-expanded',String(open));
-    row.setAttribute('aria-controls','workflowDetailBody');
-    row.setAttribute('aria-label',`${item.title}の詳細を${open?'閉じる':'開く'}`);
     const stageCell=document.createElement('td');
     stageCell.className='workflow-stage-cell';
     const stageStatus=document.createElement('div');
     stageStatus.className='workflow-stage-status';
     stageStatus.append(workflowText('span',`stage-chip stage-${item.stage}`,workflowStageInfo(item.stage).label));
-    if(open)stageStatus.append(workflowText('span','workflow-selected-mark','表示中'));
+    const detailToggle=document.createElement('button');
+    detailToggle.type='button';
+    detailToggle.className='workflow-row-toggle';
+    detailToggle.textContent=open?'表示中':'開く';
+    detailToggle.setAttribute('aria-expanded',String(open));
+    detailToggle.setAttribute('aria-controls','workflowDetailBody');
+    detailToggle.setAttribute('aria-label',`${item.title}の詳細${open?'を表示中':'を開く'}`);
+    stageStatus.append(detailToggle);
     stageCell.append(stageStatus);
     const caseCell=document.createElement('td');
     caseCell.append(workflowText('div','name',item.title),workflowText('div','subtext',item.company));
@@ -349,7 +352,8 @@ function syncWorkflowDetailDisclosure(){
   toggle.setAttribute('aria-expanded','true');
   toggle.setAttribute('aria-label',`${item.title}の詳細を閉じる`);
 }
-function setWorkflowDetailExpanded(expanded){expandedWorkflowCaseId=expanded?selectedWorkflowCaseId:null;renderWorkflowUI();}
+function openWorkflowCaseDetail(id,focusClose=true){selectedWorkflowCaseId=id;expandedWorkflowCaseId=id;renderWorkflowUI();requestAnimationFrame(()=>{workflowCaseRow(id)?.scrollIntoView({behavior:'smooth',block:'nearest'});if(focusClose)document.getElementById('workflowDetailToggle')?.focus({preventScroll:true});});}
+function closeWorkflowCaseDetail(){const id=selectedWorkflowCaseId;expandedWorkflowCaseId=null;renderWorkflowUI();requestAnimationFrame(()=>workflowCaseRow(id)?.querySelector('.workflow-row-toggle')?.focus({preventScroll:true}));}
 function renderWorkflowUI(){renderWorkflowOverview();renderWorkflowTable();renderWorkflowDetail();syncWorkflowDetailDisclosure();refreshCounts();const current=workflowCases.find(item=>item.id===selectedWorkflowCaseId);if(current&&current.stage==='analysis')document.getElementById('workflowAdvance').textContent='次の営業を案件化';}
 function addWorkflowCaseFromCard(card){const company=card.dataset.company||card.querySelector('.review-title,h3')?.textContent||'会社名未確認';if(workflowCases.some(item=>item.company===company))return;const id=`review-${Date.now()}`;workflowCases.unshift({id,number:`案件${new Date().getFullYear()}-${String(workflowCases.length+40).padStart(4,'0')}`,title:card.dataset.case||'新規相談',company,stage:'planning',reporter:'報告者未確認',department:'部署未確認',submitted:'承認から登録',contact:'未確認',amount:card.dataset.amount||'未確認',owner:card.dataset.owner||'未定',deadline:card.dataset.deadline||'未設定',nextAction:card.dataset.next||'担当と計画を決定',updated:'今',summary:'新着・承認画面から案件化しました。',managerDecision:'案件化する',presidentDecision:'進める',meeting:'未設定',decisionHistory:'案件化を承認',tasks:[{label:'担当者を確定',done:false},{label:'目的と期限を確定',done:false},{label:'最初の行動を登録',done:false}],activities:[{at:'今',text:'推進部：承認内容を案件管理へ反映'}],result:'未確定',sales:'未確定',humanAnalysis:'未実施',aiAnalysis:'計画確定後に分析',salesAction:'未設定'});selectedWorkflowCaseId=id;saveWorkflowCases();renderWorkflowUI();}
 function advanceWorkflowCase(id){const item=workflowCases.find(current=>current.id===id);if(!item)return;const index=workflowStages.findIndex(stage=>stage.id===item.stage);if(index>=workflowStages.length-1){item.updated='今';item.activities.push({at:'今',text:'推進部：分析内容を営業活用へ保存'});saveWorkflowCases();renderWorkflowUI();say('分析内容と次の営業を保存しました');return;}const next=workflowStages[index+1];item.stage=next.id;item.updated='今';if(next.id==='triage')item.nextAction='報告者へ不足情報を確認';if(next.id==='president'){item.nextAction='社長へ判断材料と推進部案を報告';item.managerDecision=item.managerDecision==='内容確認中'?'受注範囲・見込・リスクを整理して進行を提案':item.managerDecision;item.presidentDecision='確認待ち';}if(next.id==='planning'){item.nextAction='担当者・目的・期限・最初のタスクを確定';item.presidentDecision='進める';item.meeting=item.meeting==='未設定'?'方針打合せ済み（サンプル）':item.meeting;item.decisionHistory='社長判断を記録';}if(next.id==='execution')item.nextAction=(item.tasks||[]).find(task=>!task.done)?.label||'計画に沿って作業を開始';if(next.id==='result'){item.nextAction='結果・実績売上・完了理由を記録';item.result='結果入力待ち';}if(next.id==='analysis'){item.nextAction='人の所見とAI提案を確認し、次の営業を登録';if(/未確定|入力待ち/.test(item.result))item.result='受注・完了';if(/未確定|見込/.test(item.sales))item.sales=item.amount;item.humanAnalysis=item.humanAnalysis==='未実施'?'今回の進め方と改善点を担当者が記録する。':item.humanAnalysis;item.aiAnalysis='結果と過去案件を比較し、次回提案と停滞要因を提示。';}item.activities.push({at:'今',text:`推進部：${next.label}へ進行`});saveWorkflowCases();renderWorkflowUI();say(`${next.label}へ進めました`);}
@@ -385,14 +389,15 @@ document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{
 document.getElementById('caseSearch').addEventListener('input',applyCaseFilter);
 document.getElementById('workflowOverview').addEventListener('click',event=>{const button=event.target.closest('[data-workflow-stage]');if(!button)return;activeWorkflowStage=button.dataset.workflowStage;renderWorkflowUI();});
 document.getElementById('workflowAll').addEventListener('click',()=>{activeWorkflowStage='all';renderWorkflowUI();});
-document.getElementById('caseTableBody').addEventListener('click',event=>{const row=event.target.closest('[data-workflow-case]');if(!row)return;selectedWorkflowCaseId=row.dataset.workflowCase;expandedWorkflowCaseId=selectedWorkflowCaseId;renderWorkflowUI();requestAnimationFrame(()=>workflowCaseRow(selectedWorkflowCaseId)?.scrollIntoView({behavior:'smooth',block:'nearest'}));});
-document.getElementById('caseTableBody').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const row=event.target.closest('[data-workflow-case]');if(!row)return;event.preventDefault();selectedWorkflowCaseId=row.dataset.workflowCase;expandedWorkflowCaseId=selectedWorkflowCaseId;renderWorkflowUI();requestAnimationFrame(()=>workflowCaseRow(selectedWorkflowCaseId)?.scrollIntoView({behavior:'smooth',block:'nearest'}));});
-document.getElementById('workflowDetailToggle').addEventListener('click',()=>setWorkflowDetailExpanded(false));
+document.getElementById('caseTableBody').addEventListener('click',event=>{const row=event.target.closest('[data-workflow-case]');if(!row)return;openWorkflowCaseDetail(row.dataset.workflowCase);});
+document.getElementById('caseTableBody').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const button=event.target.closest('.workflow-row-toggle'),row=button?.closest('[data-workflow-case]');if(!button||!row)return;event.preventDefault();openWorkflowCaseDetail(row.dataset.workflowCase);});
+document.getElementById('workflowDetailToggle').addEventListener('click',closeWorkflowCaseDetail);
+document.getElementById('workflowDetailToggle').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;event.preventDefault();closeWorkflowCaseDetail();});
 document.getElementById('workflowAdvance').addEventListener('click',event=>handleWorkflowAdvance(event.currentTarget.dataset.advanceCase));
-document.getElementById('workflowTasks').addEventListener('change',event=>{const input=event.target.closest('[data-workflow-task]');if(!input)return;const item=workflowCases.find(current=>current.id===input.dataset.workflowCase);if(!item||!item.tasks[Number(input.dataset.workflowTask)])return;item.tasks[Number(input.dataset.workflowTask)].done=input.checked;item.updated='今';saveWorkflowCases();renderWorkflowUI();say('進捗を更新しました');});
+document.getElementById('workflowTasks').addEventListener('change',event=>{const input=event.target.closest('[data-workflow-task]');if(!input)return;const caseId=input.dataset.workflowCase,taskIndex=input.dataset.workflowTask,item=workflowCases.find(current=>current.id===caseId);if(!item||!item.tasks[Number(taskIndex)])return;item.tasks[Number(taskIndex)].done=input.checked;item.updated='今';saveWorkflowCases();renderWorkflowUI();requestAnimationFrame(()=>document.querySelector(`#workflowTasks [data-workflow-case="${caseId}"][data-workflow-task="${taskIndex}"]`)?.focus({preventScroll:true}));say('進捗を更新しました');});
 document.getElementById('workflowAddActivity').addEventListener('click',addWorkflowActivity);
 document.getElementById('workflowActivityInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addWorkflowActivity();}});
-document.addEventListener('click',event=>{const button=event.target.closest('[data-open-workflow-case]');if(!button)return;selectedWorkflowCaseId=button.dataset.openWorkflowCase;activeWorkflowStage='all';show('cases');expandedWorkflowCaseId=selectedWorkflowCaseId;renderWorkflowUI();});
+document.addEventListener('click',event=>{const button=event.target.closest('[data-open-workflow-case]');if(!button)return;const id=button.dataset.openWorkflowCase;selectedWorkflowCaseId=id;activeWorkflowStage='all';show('cases');openWorkflowCaseDetail(id);});
 document.getElementById('directoryCustomerList').addEventListener('click',event=>{const card=event.target.closest('[data-customer-id]');if(!card)return;renderCustomer(card.dataset.customerId);showDetailTab('basic');if(window.matchMedia('(max-width:760px)').matches){const workspace=document.getElementById('directoryWorkspace');workspace.classList.add('detail-open');workspace.scrollIntoView({behavior:'smooth',block:'start'});}});
 ['directorySearch','directoryRank','directoryIndustry'].forEach(id=>document.getElementById(id).addEventListener(id==='directorySearch'?'input':'change',()=>{directoryPage=1;applyDirectoryFilter();document.querySelector('.directory-master').scrollTop=0;}));
 document.querySelectorAll('[data-detail-tab]').forEach(button=>button.addEventListener('click',()=>showDetailTab(button.dataset.detailTab)));
