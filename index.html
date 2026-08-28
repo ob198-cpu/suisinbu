@@ -45,6 +45,8 @@
 @media(max-width:640px){.workflow-detail-banner-title>strong,.workflow-detail-stage{display:none}.workflow-detail-case-inline{font-size:13px}.workflow-detail-toggle{min-width:64px;padding:7px 11px}}
 .workflow-table tbody tr.workflow-inline-detail-row{cursor:default}
 .workflow-row-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:48px;min-height:28px;border:1px solid #8fb8d6;border-radius:14px;background:#fff;color:var(--blue);padding:4px 9px;font-size:11px;font-weight:900;line-height:1;white-space:nowrap}.workflow-row-toggle:hover{background:var(--blue-pale)}.workflow-row-toggle[aria-expanded="true"]{border-color:var(--navy);background:var(--navy);color:#fff}.workflow-row-toggle:focus-visible{outline:3px solid #a9d4f2;outline-offset:2px}
+.workflow-stage-status{display:grid;grid-template-columns:80px 58px;align-items:center;gap:6px}.workflow-row-toggle{width:58px;min-width:58px}.workflow-table tbody tr.selected td:first-child{border-left-width:4px}
+@media(max-width:640px){.workflow-table tbody tr:not(.workflow-inline-detail-row){grid-template-columns:148px repeat(2,minmax(0,1fr))}.workflow-row-toggle{min-height:44px}}
 .workflow-table tbody tr.workflow-inline-detail-row>td{position:relative;top:-6px;padding:0!important;background:#fff!important;border:2px solid #79acd1!important;border-top:0!important;border-radius:0 0 12px 12px!important;box-shadow:0 10px 22px rgba(18,59,102,.12)}
 .workflow-table tbody tr.workflow-inline-detail-row:hover>td{background:#fff!important}
 .workflow-inline-detail-row .workflow-detail{margin:0;border:0;border-radius:0 0 10px 10px;box-shadow:none;overflow:hidden}
@@ -53,6 +55,8 @@
 @media(max-width:640px){.workflow-table-frame .table-wrap{overflow:visible}.workflow-table{display:block;width:100%;min-width:0}.workflow-table tbody{display:block;width:100%;min-width:0}.workflow-table tbody tr{width:100%;max-width:100%;min-width:0;margin-bottom:9px}.workflow-table tbody tr.selected{margin-bottom:0;border-radius:10px 10px 0 0}.workflow-table tbody tr.workflow-inline-detail-row{display:block;margin:0 0 9px;padding:0;border:0!important;border-radius:0;background:transparent;box-shadow:none}.workflow-table tbody tr.workflow-inline-detail-row>td{display:block;position:static;grid-column:1/-1!important;width:100%;min-width:0;padding:0!important;background:#fff!important;border:2px solid var(--blue)!important;border-top:0!important;border-radius:0 0 10px 10px!important}.workflow-inline-detail-row .workflow-detail{width:100%;max-width:100%;min-width:0;margin:0;border-radius:0 0 8px 8px}}
 @media(max-width:980px){.menu{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(max-width:640px){.menu{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.workflow-detail-toggle[hidden]{display:none!important}
+@media(min-width:641px) and (max-width:1150px){.workflow-table th:first-child{width:172px}}
 </style>
 </head>
 <body>
@@ -104,7 +108,7 @@
       </section>
       <div id="workflowDetailParking" hidden>
       <section class="panel workflow-detail" id="workflowDetail" hidden>
-        <div class="workflow-detail-banner"><div class="workflow-detail-banner-title"><strong>案件詳細</strong><span class="workflow-detail-case-inline" id="workflowDetailCaseInline" aria-live="polite"></span></div><div class="workflow-detail-banner-actions"><span class="workflow-detail-stage" id="workflowSelectedStage"></span><button type="button" class="workflow-detail-toggle" id="workflowDetailToggle" aria-expanded="true" aria-controls="workflowDetailBody">閉じる</button></div></div>
+        <div class="workflow-detail-banner"><div class="workflow-detail-banner-title"><strong>案件詳細</strong><span class="workflow-detail-case-inline" id="workflowDetailCaseInline" aria-live="polite"></span></div><div class="workflow-detail-banner-actions"><span class="workflow-detail-stage" id="workflowSelectedStage"></span><button type="button" class="workflow-detail-toggle" id="workflowDetailToggle" aria-expanded="true" aria-controls="workflowDetailBody" hidden>閉じる</button></div></div>
         <div class="workflow-detail-body" id="workflowDetailBody" hidden>
           <div class="workflow-detail-head"><div class="workflow-detail-title"><span class="workflow-case-number" id="workflowCaseNumber"></span><h2 id="workflowCaseTitle"></h2><p id="workflowCaseCompany"></p></div><div class="workflow-owner"><span>管理担当</span><strong>推進部</strong><span>案件担当</span><strong id="workflowOwner"></strong></div></div>
           <div class="workflow-current"><div><span class="workflow-next-label">今やること</span><strong class="workflow-next-action" id="workflowNextAction"></strong><div class="workflow-next-meta"><span id="workflowStageLabel"></span><span id="workflowDeadline"></span><span id="workflowUpdated"></span></div></div><button type="button" class="btn primary" id="workflowAdvance"></button></div>
@@ -311,10 +315,10 @@ function renderWorkflowTable(){
     const detailToggle=document.createElement('button');
     detailToggle.type='button';
     detailToggle.className='workflow-row-toggle';
-    detailToggle.textContent=open?'表示中':'開く';
+    detailToggle.textContent=open?'閉じる':'開く';
     detailToggle.setAttribute('aria-expanded',String(open));
     detailToggle.setAttribute('aria-controls','workflowDetailBody');
-    detailToggle.setAttribute('aria-label',`${item.title}の詳細${open?'を表示中':'を開く'}`);
+    detailToggle.setAttribute('aria-label',`${item.title}の詳細${open?'を閉じる':'を開く'}`);
     stageStatus.append(detailToggle);
     stageCell.append(stageStatus);
     const caseCell=document.createElement('td');
@@ -347,12 +351,12 @@ function syncWorkflowDetailDisclosure(){
   panel.hidden=false;
   body.hidden=false;
   inline.textContent=`${item.title}｜${item.company}`;
-  toggle.hidden=false;
+  toggle.hidden=true;
   toggle.textContent='閉じる';
   toggle.setAttribute('aria-expanded','true');
   toggle.setAttribute('aria-label',`${item.title}の詳細を閉じる`);
 }
-function openWorkflowCaseDetail(id,focusClose=true){selectedWorkflowCaseId=id;expandedWorkflowCaseId=id;renderWorkflowUI();requestAnimationFrame(()=>{workflowCaseRow(id)?.scrollIntoView({behavior:'smooth',block:'nearest'});if(focusClose)document.getElementById('workflowDetailToggle')?.focus({preventScroll:true});});}
+function openWorkflowCaseDetail(id,focusClose=true){selectedWorkflowCaseId=id;expandedWorkflowCaseId=id;renderWorkflowUI();requestAnimationFrame(()=>{const row=workflowCaseRow(id),rect=row?.getBoundingClientRect();if(row&&rect&&(rect.top<0||rect.bottom>innerHeight))row.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});if(focusClose)row?.querySelector('.workflow-row-toggle')?.focus({preventScroll:true});});}
 function closeWorkflowCaseDetail(){const id=selectedWorkflowCaseId;expandedWorkflowCaseId=null;renderWorkflowUI();requestAnimationFrame(()=>workflowCaseRow(id)?.querySelector('.workflow-row-toggle')?.focus({preventScroll:true}));}
 function renderWorkflowUI(){renderWorkflowOverview();renderWorkflowTable();renderWorkflowDetail();syncWorkflowDetailDisclosure();refreshCounts();const current=workflowCases.find(item=>item.id===selectedWorkflowCaseId);if(current&&current.stage==='analysis')document.getElementById('workflowAdvance').textContent='次の営業を案件化';}
 function addWorkflowCaseFromCard(card){const company=card.dataset.company||card.querySelector('.review-title,h3')?.textContent||'会社名未確認';if(workflowCases.some(item=>item.company===company))return;const id=`review-${Date.now()}`;workflowCases.unshift({id,number:`案件${new Date().getFullYear()}-${String(workflowCases.length+40).padStart(4,'0')}`,title:card.dataset.case||'新規相談',company,stage:'planning',reporter:'報告者未確認',department:'部署未確認',submitted:'承認から登録',contact:'未確認',amount:card.dataset.amount||'未確認',owner:card.dataset.owner||'未定',deadline:card.dataset.deadline||'未設定',nextAction:card.dataset.next||'担当と計画を決定',updated:'今',summary:'新着・承認画面から案件化しました。',managerDecision:'案件化する',presidentDecision:'進める',meeting:'未設定',decisionHistory:'案件化を承認',tasks:[{label:'担当者を確定',done:false},{label:'目的と期限を確定',done:false},{label:'最初の行動を登録',done:false}],activities:[{at:'今',text:'推進部：承認内容を案件管理へ反映'}],result:'未確定',sales:'未確定',humanAnalysis:'未実施',aiAnalysis:'計画確定後に分析',salesAction:'未設定'});selectedWorkflowCaseId=id;saveWorkflowCases();renderWorkflowUI();}
@@ -389,8 +393,8 @@ document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{
 document.getElementById('caseSearch').addEventListener('input',applyCaseFilter);
 document.getElementById('workflowOverview').addEventListener('click',event=>{const button=event.target.closest('[data-workflow-stage]');if(!button)return;activeWorkflowStage=button.dataset.workflowStage;renderWorkflowUI();});
 document.getElementById('workflowAll').addEventListener('click',()=>{activeWorkflowStage='all';renderWorkflowUI();});
-document.getElementById('caseTableBody').addEventListener('click',event=>{const row=event.target.closest('[data-workflow-case]');if(!row)return;openWorkflowCaseDetail(row.dataset.workflowCase);});
-document.getElementById('caseTableBody').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const button=event.target.closest('.workflow-row-toggle'),row=button?.closest('[data-workflow-case]');if(!button||!row)return;event.preventDefault();openWorkflowCaseDetail(row.dataset.workflowCase);});
+document.getElementById('caseTableBody').addEventListener('click',event=>{const row=event.target.closest('[data-workflow-case]');if(!row)return;const toggle=event.target.closest('.workflow-row-toggle');if(toggle?.getAttribute('aria-expanded')==='true'){closeWorkflowCaseDetail();return;}openWorkflowCaseDetail(row.dataset.workflowCase);});
+document.getElementById('caseTableBody').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const button=event.target.closest('.workflow-row-toggle'),row=button?.closest('[data-workflow-case]');if(!button||!row)return;event.preventDefault();if(button.getAttribute('aria-expanded')==='true')closeWorkflowCaseDetail();else openWorkflowCaseDetail(row.dataset.workflowCase);});
 document.getElementById('workflowDetailToggle').addEventListener('click',closeWorkflowCaseDetail);
 document.getElementById('workflowDetailToggle').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;event.preventDefault();closeWorkflowCaseDetail();});
 document.getElementById('workflowAdvance').addEventListener('click',event=>handleWorkflowAdvance(event.currentTarget.dataset.advanceCase));
