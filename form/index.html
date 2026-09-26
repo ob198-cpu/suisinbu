@@ -42,6 +42,7 @@ html{-webkit-text-size-adjust:100%}
 <div class="field" data-field="reporterName"><label for="reporterName">報告者（氏名）<span class="req">必須</span></label><input id="reporterName" autocomplete="name" placeholder="例：山田 太郎"><span class="err"></span></div>
 <div class="field" data-field="reporterDepartment"><label for="reporterDepartment">部署名<span class="hint">所属部署</span></label><input id="reporterDepartment" placeholder="例：営業部"><span class="err"></span></div>
 <div class="field" data-field="orgName"><label for="orgName">会社名・顧客名<span class="req">必須</span></label><input id="orgName" placeholder="例：サンプル建設株式会社"><span class="err"></span></div>
+<div class="field"><label for="caseKind">案件種別</label><select id="caseKind"><option value="">未分類</option><option>講習</option><option>請負</option><option>打ち合わせ</option><option>問い合わせ</option><option>その他</option></select><small>すぐに売上につながらない訪問・相談も登録できます。</small></div>
 <div class="field" data-field="channel"><label for="channel">発生経路</label><select id="channel"><option>問い合わせ</option><option>紹介</option><option>既存顧客</option><option>営業活動</option><option>不明</option></select><span class="err"></span></div>
 <div class="field" data-field="desiredTime"><label for="desiredTime">希望時期<span class="hint">分かる範囲で可</span></label><input id="desiredTime" placeholder="例：9月中／未定"><span class="err"></span></div>
 <div class="field" data-field="urgency"><label for="urgency">緊急度</label><select id="urgency"><option>通常</option><option>高</option><option>至急</option></select><span class="err"></span></div>
@@ -80,7 +81,7 @@ form.addEventListener('submit',e=>{
   if(!summary){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を入力してください。';ok=false}
   else if(summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を5文字以上で入力してください。';ok=false}
   if(!ok)return;
-  const envelope={version:2,requestId:requestId(),submittedAt:submittedAt(),payload:{reporterName,reporterDepartment:$('reporterDepartment').value.trim(),orgName,channel:$('channel').value,desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budget').value,conversationTrigger:$('conversationTrigger').value.trim(),summary,customerNeedsReaction:$('customerNeedsReaction').value.trim(),ourResponseProposal:$('ourResponseProposal').value.trim()}};
+  const envelope={version:2,requestId:requestId(),submittedAt:submittedAt(),payload:{reporterName,reporterDepartment:$('reporterDepartment').value.trim(),orgName,caseKind:$('caseKind').value,channel:$('channel').value,desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budget').value,conversationTrigger:$('conversationTrigger').value.trim(),summary,customerNeedsReaction:$('customerNeedsReaction').value.trim(),ourResponseProposal:$('ourResponseProposal').value.trim()}};
   const isLocalOutput=decodeURIComponent(location.pathname).includes('CDP北海道_案件発生報告フォーム_音声対応');
   const targetPath=isLocalOutput?'../CDP北海道_顧客案件営業管理システム_Ver1.0_実行版/index.html':'../index.html';
   const target=new URL(targetPath,location.href),serialized=JSON.stringify(envelope),transferKey=FORM_TRANSFER_PREFIX+envelope.requestId;
