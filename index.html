@@ -21,6 +21,40 @@
     allow="clipboard-read; clipboard-write"
     referrerpolicy="strict-origin-when-cross-origin">
   </iframe>
+  <script>
+  (function () {
+    var id = new URL(location.href).searchParams.get('intakeId');
+    if (!id || !/^external-[a-zA-Z0-9-]{1,100}$/.test(id)) return;
+    var key = 'cdp_form_intake_transfer_v2:' + id, envelope;
+    try { envelope = JSON.parse(sessionStorage.getItem(key)); } catch (e) { return; }
+    if (!envelope || envelope.requestId !== id) return;
+    var frame = document.querySelector('.app-frame'), recipient = null;
+    function belongsToFrame(source) {
+      try {
+        for (var n = 0; source && n < 5; n++) {
+          if (source === frame.contentWindow) return true;
+          if (source.parent === source) break;
+          source = source.parent;
+        }
+      } catch (e) {}
+      return false;
+    }
+    window.addEventListener('message', function (event) {
+      if (!/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(event.origin) ||
+          !belongsToFrame(event.source)) return;
+      if (event.data && event.data.type === 'cdp-intake-ready') {
+        recipient = event.source;
+        recipient.postMessage({ type:'cdp-intake-transfer', envelope:envelope }, event.origin);
+      } else if (event.source === recipient && event.data && event.data.type === 'cdp-intake-saved' &&
+                 event.data.requestId === id) {
+        sessionStorage.removeItem(key);
+        var url = new URL(location.href); url.searchParams.delete('intakeId');
+        history.replaceState(null, '', url.href);
+        envelope = null;
+      }
+    });
+  })();
+  </script>
   <noscript>JavaScriptを有効にして、<a href="https://script.google.com/macros/s/AKfycbyJiJjTwa2S8dRa51gyVZBriaWAQYiHj3lFUz1-bjTumBNun5Hu36zQ2tr7KMoMlx8b/exec">本番システム</a>を開いてください。</noscript>
 </body>
 </html>
