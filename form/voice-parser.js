@@ -121,8 +121,9 @@
     return match[1] + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
   }
 
-  function positiveChoice(value, choices) {
+  function positiveChoice(value, choices, fieldKey) {
     var normalized = clean(value).replace(/[\s　]/g, '').replace(/(?:でお願いします|を選びます|にします|でした|です)$/, '');
+    if (fieldKey === 'urgency' && normalized === '高め') normalized = '高';
     return choices.indexOf(normalized) >= 0 ? normalized : '';
   }
 
@@ -212,7 +213,7 @@
       inlineMatches.push({ field: inlineEntry.field, start: found.index, valueStart: inlineValueStart });
     }
     var spoken = spokenMatches(source);
-    var allCandidates = matches.concat(inlineMatches, bareMatches, spoken);
+    var allCandidates = matches.concat(inlineMatches, bareMatches, spoken, choiceMatches);
     var firstCandidate = allCandidates.slice().sort(function (a, b) { return a.start - b.start; })[0];
     var startsWithField = firstCandidate && isSpeechFiller(source.slice(0, firstCandidate.start));
     if (startsWithField) {
@@ -276,7 +277,7 @@
       }
       if (!raw || blocked.has(match.field.key)) return;
       if (match.field.choices) {
-        var chosen = positiveChoice(raw, match.field.choices);
+        var chosen = positiveChoice(raw, match.field.choices, match.field.key);
         if (!chosen) {
           issues.push(match.field.name + 'は選択肢を一つに決められませんでした。');
           return;
