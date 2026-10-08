@@ -96,28 +96,77 @@ html{-webkit-text-size-adjust:100%}
 <script src="./voice-parser.js"></script>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus"),FORM_TRANSFER_PREFIX='cdp_form_intake_transfer_v2:';
-let recognition=null,listening=false,voiceBase='';
+let recognition=null,listening=false,voiceBase='',voiceWanted=false,voiceRetryTimer=null,voiceRetryDelay=300,voiceEndMessage='';
 const manuallyChanged=new Set(),voiceFilled=new Set(),manualCategories=new Set(),voiceCategories=new Set(),transcript=$("voiceTranscript");
 form.querySelectorAll('input,select,textarea').forEach(el=>{if(!el.id)return;el.addEventListener('input',()=>manuallyChanged.add(el.id));el.addEventListener('change',()=>manuallyChanged.add(el.id))});
 const categoryInputs=Array.from(form.querySelectorAll('input[name="categories"]'));
 categoryInputs.forEach(el=>el.addEventListener('change',()=>{manualCategories.add(el.value);voiceCategories.delete(el.value)}));
 function setStatus(t){status.textContent=t}
 function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
-function stopVoice(){if(recognition&&listening){$('voiceStop').disabled=true;try{recognition.stop()}catch(e){recognition=null;setListening(false);setStatus('音声入力を停止しました。文字を確認してください。')}}}
-function startVoice(){
-  if(listening)return;
+function clearVoiceRetry(){if(voiceRetryTimer!==null){clearTimeout(voiceRetryTimer);voiceRetryTimer=null}}
+function finishVoice(message){voiceWanted=false;clearVoiceRetry();recognition=null;voiceEndMessage='';setListening(false);setStatus(message)}
+function stopVoice(){
+  if(!listening)return;
+  voiceWanted=false;clearVoiceRetry();voiceEndMessage='音声入力を停止しました。文字を確認してください。';
+  if(!recognition){finishVoice(voiceEndMessage);return}
+  $('voiceStop').disabled=true;
+  const active=recognition;
+  try{active.stop()}catch(e){
+    try{active.abort()}catch(abortError){}
+    finishVoice('音声入力の停止を確認できません。ブラウザーのマイク使用表示を確認し、必要ならこのタブを閉じてください。');
+  }
+}
+function scheduleVoiceRetry(reason){
+  if(!voiceWanted||voiceRetryTimer!==null)return;
+  const delay=voiceRetryDelay;
+  voiceRetryDelay=Math.min(voiceRetryDelay*2,5000);
+  setStatus((reason?reason+'。':'音声認識が中断されました。')+'文字は残しています。'+(delay<1000?'まもなく':Math.ceil(delay/1000)+'秒後に')+'自動再開します。「話し終える」で停止できます。');
+  voiceRetryTimer=setTimeout(()=>{voiceRetryTimer=null;if(voiceWanted&&!recognition)runVoiceSession()},delay);
+}
+function runVoiceSession(){
+  if(!voiceWanted||recognition)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){setStatus('このブラウザーは音声認識に対応していません。文字起こし欄へ直接入力できます。');return}
-  recognition=new SR();recognition.lang='ja-JP';recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;
+  let active,hadResult=false,lastError='';
+  try{active=new SR()}catch(e){scheduleVoiceRetry('音声認識を開始できませんでした');return}
+  recognition=active;active.lang='ja-JP';active.continuous=true;active.interimResults=true;active.maxAlternatives=1;
   voiceBase=transcript.value.trim();
-  recognition.onresult=e=>{
+  active.onresult=e=>{
+    if(recognition!==active)return;
+    hadResult=true;
     const text=Array.from(e.results).map(result=>result[0].transcript.trim()).filter(Boolean).join('。');
     transcript.value=[voiceBase,text].filter(Boolean).join('。');
     setStatus('文字起こし中です。話し終えたら「話し終える」を押してください。');
   };
-  recognition.onerror=e=>{setStatus(e.error==='not-allowed'?'マイクを利用できません。許可設定を確認するか、文字を直接入力してください。':'聞き取りに失敗しました。認識済みの文字は残しています。');};
-  recognition.onend=()=>{recognition=null;setListening(false);if(!status.textContent.includes('失敗')&&!status.textContent.includes('利用できません'))setStatus(transcript.value.trim()?'文字を確認して「内容を項目に反映」を押してください。':'音声を認識できませんでした。もう一度お試しください。');};
-  try{recognition.start();setListening(true);setStatus('聞き取り中です。必要な情報をまとめて話してください。')}catch(e){recognition=null;setListening(false);setStatus('音声入力を開始できませんでした。文字を直接入力してください。')}
+  active.onerror=e=>{
+    if(recognition!==active)return;
+    lastError=e.error||'unknown';
+    if(['not-allowed','service-not-allowed','audio-capture','language-not-supported'].includes(lastError)){
+      voiceWanted=false;clearVoiceRetry();
+      voiceEndMessage=lastError==='audio-capture'?'マイクを使用できません。接続・使用状況を確認するか、文字を直接入力してください。':'音声認識またはマイクを利用できません（'+lastError+'）。ブラウザーの許可設定を確認するか、文字を直接入力してください。';
+      const message=voiceEndMessage;
+      try{active.abort()}catch(abortError){}
+      finishVoice(message);
+    }
+  };
+  active.onend=()=>{
+    if(recognition!==active)return;
+    recognition=null;
+    if(!voiceWanted){finishVoice(voiceEndMessage||'音声入力を停止しました。文字を確認してください。');return}
+    voiceRetryDelay=hadResult?300:voiceRetryDelay;
+    const reason=lastError==='no-speech'?'音声が検出されず認識が終了しました':lastError==='network'?'音声認識の通信が中断されました':lastError?'音声認識が中断されました（'+lastError+'）':'ブラウザー側で音声認識が終了しました';
+    scheduleVoiceRetry(reason);
+  };
+  try{active.start();setStatus('聞き取り中です。必要な情報をまとめて話してください。')}catch(e){
+    if(recognition!==active)return;
+    recognition=null;
+    if(e.name==='NotAllowedError'||e.name==='SecurityError'){finishVoice('マイクを利用できません。ブラウザーの許可設定を確認するか、文字を直接入力してください。')}
+    else scheduleVoiceRetry('音声認識を開始できませんでした（'+(e.name||'不明なエラー')+'）');
+  }
+}
+function startVoice(){
+  if(listening)return;
+  if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){setStatus('このブラウザーは音声認識に対応していません。文字起こし欄へ直接入力できます。');return}
+  voiceWanted=true;voiceRetryDelay=300;voiceEndMessage='';setListening(true);runVoiceSession();
 }
 function applyTranscript(){
   if(listening){setStatus('話し終えてから振り分けてください。');return}
@@ -181,6 +230,6 @@ $('voiceStart').addEventListener('click',startVoice);
 $('voiceStop').addEventListener('click',stopVoice);
 $('voiceApply').addEventListener('click',applyTranscript);
 transcript.addEventListener('input',()=>{$('voiceApply').disabled=listening||!transcript.value.trim()});
-$('clearBtn').addEventListener('click',()=>{if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();transcript.value='';manuallyChanged.clear();voiceFilled.clear();manualCategories.clear();voiceCategories.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
+$('clearBtn').addEventListener('click',()=>{voiceWanted=false;clearVoiceRetry();if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();transcript.value='';manuallyChanged.clear();voiceFilled.clear();manualCategories.clear();voiceCategories.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
 </script>
 </body></html>
