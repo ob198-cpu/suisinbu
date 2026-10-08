@@ -54,12 +54,24 @@
   // 句頭の正式な見出しを使う口述では、音声認識が区切りを省略したり句点へ変えたりする。
   var spokenEntries = bareEntries.concat([
     { alias: '署名', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), context: 'department' },
+    { alias: '部署', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), context: 'department' },
+    { alias: '報告', field: fields.find(function (field) { return field.key === 'reporterName'; }), context: 'reporter' },
+    { alias: '会社', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'company' },
+    { alias: '企業名', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'company' },
     { alias: '関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'referrer' },
+    { alias: '紹介者の関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'referrer' },
     { alias: '担当者', field: fields.find(function (field) { return field.key === 'contactInfo'; }), context: 'form' },
-    { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' }
+    { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
+    { alias: '希望日時', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
+    { alias: '希望期間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
+    { alias: '志望時期', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form', correction: true },
+    { alias: '死亡時期', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form', correction: true },
+    { alias: '案件種類', field: fields.find(function (field) { return field.key === 'caseKind'; }), context: 'form' },
+    { alias: '案件の種類', field: fields.find(function (field) { return field.key === 'caseKind'; }), context: 'form' }
   ]).sort(function (a, b) { return b.alias.length - a.alias.length; });
   var spokenAliases = spokenEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
-  var spokenMarker = new RegExp('(^|[。！？\\n;；])\\s*(?:と[ \\t　]*)?(' + spokenAliases.join('|') + ')', 'g');
+  var fillerWords = 'えーっと|えーと|ええと|えっと|えー|ええ|あのー|あの|はい';
+  var spokenMarker = new RegExp('(^|[。！？\\n;；])\\s*(?:(?:' + fillerWords + ')[ \\t　]+)*(?:と[ \\t　]*)?(' + spokenAliases.join('|') + ')', 'g');
 
   function clean(value) {
     return String(value || '').replace(/^[\s、,。！？;；]+|[\s、,。！？;；]+$/g, '').trim();
@@ -67,11 +79,12 @@
 
   function isSpeechFiller(value) {
     var parts = clean(value).split(/[。！？\n、,;；]+/).map(clean).filter(Boolean);
-    return parts.every(function (part) { return /^(?:ええ|えーと|えっと|えー|あの|はい|と|以上|以上です)$/.test(part); });
+    var words = '(?:' + fillerWords + '|と|以上|以上です)';
+    return parts.every(function (part) { return new RegExp('^' + words + '(?:[ \\t　]+' + words + ')*$').test(part); });
   }
 
   function isCompanyNameValue(source, item, candidates) {
-    if (!item.attached) return false;
+    if (!item.attached && !item.context) return false;
     var previous = candidates.filter(function (candidate) { return candidate.start < item.start; })
       .sort(function (a, b) { return b.start - a.start; })[0];
     if (!previous || previous.field.key !== 'orgName' || clean(source.slice(previous.valueStart, item.labelStart))) return false;
@@ -89,7 +102,8 @@
       var attached = !separator;
       if (attached && (entry.field.multiline || /^(?:が|を|について|とは|の|に|へ|から)/.test(source.slice(end)))) continue;
       candidates.push({ field: entry.field, start: found.index, labelStart: end - entry.alias.length, valueStart: end + separator.length,
-        context: entry.context, attached: attached, uncertain: attached && entry.alias === '報告者名' });
+        context: entry.context, attached: attached, uncertain: attached && entry.alias === '報告者名',
+        correctedLabel: entry.correction ? entry.alias : '' });
     }
     candidates = candidates.filter(function (item, index, all) {
       return !isCompanyNameValue(source, item, all);
@@ -97,10 +111,17 @@
     var firstText = candidates.find(function (item) { return item.field.multiline; });
     var prefix = candidates.filter(function (item) { return !firstText || item.start <= firstText.start; });
     var formal = prefix.filter(function (item) { return !item.context; });
-    if (!formal.length || !isSpeechFiller(source.slice(0, formal[0].start))) return [];
+    // 省略・誤認識の見出しが先頭でも、後続に正式な項目が複数あれば構造化口述として扱う。
+    if (!prefix.length || !isSpeechFiller(source.slice(0, prefix[0].start))) return [];
     var structured = new Set(formal.map(function (item) { return item.field.key; })).size >= 2;
     return prefix.filter(function (item, index) {
       if ((item.attached || item.context) && !structured) return false;
+      if (item.context === 'reporter') {
+        var name = clean(source.slice(item.valueStart, prefix[index + 1] ? prefix[index + 1].start : source.length));
+        return index === 0 && !item.attached && /^[\p{L}\p{N} \t　・]{1,30}$/u.test(name) &&
+          !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ)|(?:します|しました|です|でした)$)/.test(name);
+      }
+      if (item.context === 'company') return !item.attached;
       if (item.context === 'department') {
         var previous = prefix[index - 1], next = prefix[index + 1];
         var department = clean(source.slice(item.valueStart, next ? next.start : source.length));
@@ -113,6 +134,10 @@
   }
 
   function normalizeDate(value) {
+    if (/^(?:今日|本日)$/.test(value)) {
+      var today = new Date();
+      return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    }
     var match = String(value).match(/^(\d{4})[年\/-](\d{1,2})[月\/-](\d{1,2})日?$/);
     if (!match) return '';
     var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
@@ -146,7 +171,11 @@
       if (!nextKey) continue;
       var boundary = i + 1 < matches.length ? matches[i + 1].start : source.length;
       var segment = source.slice(current.valueStart, boundary);
-      var candidates = aliasEntries.filter(function (entry) { return entry.field.key === nextKey && entry.alias.length >= 3; })
+      var nextEntries = aliasEntries.filter(function (entry) { return entry.field.key === nextKey && entry.alias.length >= 3; });
+      if (current.field.key === 'reporterDepartment') nextEntries.push({
+        alias: '会社', field: fields.find(function (field) { return field.key === 'orgName'; }), abbreviated: true
+      });
+      var candidates = nextEntries
         .map(function (entry) { return { entry: entry, index: segment.indexOf(entry.alias) }; })
         .filter(function (item) { return item.index > 0; })
         .sort(function (a, b) { return a.index - b.index || b.entry.alias.length - a.entry.alias.length; });
@@ -156,6 +185,7 @@
         var separator = after.match(/^[ \t　]*(?:は|：|:|＝|=|、|,|[ \t　]+)/);
         var right = clean(separator ? after.slice(separator[0].length) : after);
         if (!left || !right) continue;
+        if (candidate.entry.abbreviated && (!separator || !/^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/.test(left))) continue;
         if (current.field.choices && !positiveChoice(left, current.field.choices)) continue;
         if (!separator && (!['reporterDepartment', 'orgName'].includes(nextKey) || left.length > 20)) continue;
         var start = current.valueStart + candidate.index;
@@ -310,6 +340,7 @@
         issues.push(match.field.name + 'が複数あるため、手入力で確認してください。');
       } else {
         values[match.field.key] = raw;
+        if (match.correctedLabel) issues.push('「' + match.correctedLabel + '」を「' + match.field.name + '」として扱いました。確認してください。');
       }
     });
 
