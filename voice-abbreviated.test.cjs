@@ -4,6 +4,103 @@ const { parseTranscript } = require('./form/voice-parser.js');
 
 // 実際に再報告された区切り方を、架空の値で固定する。
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
+const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
+
+test('再報告された無空白・見出し誤認識でも明確な欄を個別に反映する', () => {
+  const result = parseTranscript(latestTranscript);
+  for (const [key, value] of Object.entries({reporterName:'試験担当',reporterDepartment:'営業部',caseKind:'講習',channel:'自治体',referrerRelationship:'取引先'}))
+    assert.equal(result.values[key], value, key);
+  assert.equal(result.values.discoveredOn, parseTranscript('案件を知った日は今日。').values.discoveredOn);
+  assert.equal(Object.hasOwn(result.values, 'referrerName'), false, '見出しのない名前の役割を推測しない');
+  assert.ok(result.unassigned.includes('試験紹介者'), '判断できない名前を原文側に残す');
+  assert.equal(Object.hasOwn(result.values, 'summary'), false, '項目口述を概要へ流さない');
+  assert.equal(Object.hasOwn(result.values, 'orgName'), false, '社名の先頭を勝手に削らない');
+  assert.ok(result.unassigned.includes('社架空建設株式会社'));
+  assert.ok(result.issues.some(issue => issue.includes('「社」') && issue.includes('会社名')));
+  for (const heading of ['編集', '紹介書との関係'])
+    assert.ok(result.issues.some(issue => issue.includes('「' + heading + '」')), heading + 'の補正を確認できる');
+});
+
+test('未知の冒頭項目があっても明確な後続正式項目まで全滅させない', () => {
+  const result = parseTranscript('よみとれない項目試験値。案件種別講習。緊急度高め。');
+  assert.equal(result.values.caseKind, '講習');
+  assert.equal(result.values.urgency, '高');
+  assert.ok(result.unassigned.includes('よみとれない項目試験値'));
+  assert.equal(Object.hasOwn(result.values, 'summary'), false);
+});
+
+test('日付と発生経路の区切りが欠落しても明示日付だけを分割する', () => {
+  for (const [date, expected] of [['今日', parseTranscript('案件を知った日は今日。').values.discoveredOn], ['本日', parseTranscript('案件を知った日は本日。').values.discoveredOn], ['2026年10月8日','2026-10-08']]) {
+    const result = parseTranscript(`案件を知った日、${date}発生経路。。自治体。緊急度高め。`);
+    assert.equal(result.values.discoveredOn, expected, date);
+    assert.equal(result.values.channel, '自治体', date);
+  }
+  for (const date of ['今日か昨日', '9月', '2026年2月30日'])
+    assert.equal(Object.hasOwn(parseTranscript(`案件を知った日、${date}発生経路。。自治体。`).values, 'discoveredOn'), false, date);
+});
+
+test('無空白の言いよどみでも正式項目名と値を壊さない', () => {
+  for (const filler of ['ええ', 'えーっと', 'あのー', 'ええあのー']) {
+    const result = parseTranscript(`${filler}報告者試験担当部署名営業部。会社名架空株式会社。案件種別講習。`);
+    assert.equal(result.values.reporterName, '試験担当', filler);
+    assert.equal(result.values.reporterDepartment, '営業部', filler);
+    assert.equal(result.values.orgName, '架空株式会社', filler);
+  }
+});
+
+test('編集から氏名を推測するのは冒頭の氏名・部署連結が揃う場合だけ', () => {
+  for (const source of ['編集試験担当。部署名営業部。案件種別講習。', '編集して部署名営業部。案件種別講習。', '編集内容部署名営業部。案件種別講習。', '編集試験担当と相談した部署名営業部。社 架空株式会社。案件種別講習。緊急度高。', '編集試験担当部署名営業部と相談した。案件種別講習。', '案件種別講習。編集試験担当部署名営業部。緊急度高。'])
+    assert.equal(Object.hasOwn(parseTranscript(source).values, 'reporterName'), false, source);
+});
+
+test('社を会社見出しとして扱っても会社名の社の文字や通常の文章を切らない', () => {
+  for (const company of ['社員サービス株式会社', '社長支援株式会社', '社会福祉法人架空会', '社労士支援株式会社', '社宅管理株式会社']) {
+    const result = parseTranscript(`報告者試験担当部署名営業部。会社名${company}。案件種別講習。`);
+    assert.equal(result.values.orgName, company, company);
+    const short = parseTranscript(`報告者試験担当部署名営業部。${company}。案件種別講習。`);
+    assert.equal(Object.hasOwn(short.values, 'orgName'), false, company);
+  }
+  assert.equal(Object.hasOwn(parseTranscript('社内で会社を相談した。案件種別講習。緊急度高。').values, 'orgName'), false);
+  assert.equal(parseTranscript(latestTranscript.replace('社架空', '社 架空')).values.orgName, '架空建設株式会社', '見出しの区切りがあれば反映できる');
+  assert.equal(parseTranscript(latestTranscript.replace('社架空', '会社名架空')).values.orgName, '架空建設株式会社', '正式見出しは空白がなくても反映できる');
+});
+
+test('後続項目を救済しても文章を報告者や会社名として確定しない', () => {
+  const result = parseTranscript('昨日訪問した。報告者試験担当と言われた。会社名架空建設と聞いた。案件種別講習。');
+  assert.equal(result.values.caseKind, '講習');
+  assert.equal(Object.hasOwn(result.values, 'reporterName'), false);
+  assert.equal(Object.hasOwn(result.values, 'orgName'), false);
+  assert.ok(result.unassigned.includes('と言われた'));
+  const referrer = parseTranscript('雑音。紹介者名試験紹介者と話した。案件種別講習。緊急度高。');
+  assert.equal(Object.hasOwn(referrer.values, 'referrerName'), false);
+  assert.equal(referrer.values.caseKind, '講習');
+  assert.equal(referrer.values.urgency, '高');
+});
+
+test('未知語から正式な氏名・会社名を救済し、明示された概要は通常どおり反映する', () => {
+  const result = parseTranscript('雑音。報告者試験担当。会社名架空株式会社。案件種別講習。');
+  assert.equal(result.values.reporterName, '試験担当');
+  assert.equal(result.values.orgName, '架空株式会社');
+  assert.equal(result.values.caseKind, '講習');
+  assert.equal(result.unassigned, '雑音');
+  assert.equal(parseTranscript('相談内容は試験紹介者さんから相談を受けた。').values.summary, '試験紹介者さんから相談を受けた');
+});
+
+test('正式見出しだけの構造化口述でも裸の名前を概要へ押し込まない', () => {
+  const result = parseTranscript('報告者試験担当。部署名営業部。会社名架空株式会社。案件種別講習。発生経路。。自治体。。試験紹介者。');
+  assert.equal(result.values.channel, '自治体');
+  assert.equal(Object.hasOwn(result.values, 'summary'), false);
+  assert.ok(result.unassigned.includes('試験紹介者'));
+});
+
+test('紹介書の補正や後続項目の救済を自由記述内で行わない', () => {
+  const body = '編集試験担当部署名営業部。社架空株式会社。案件種別講習。紹介書との関係、取引先。緊急度高め';
+  const result = parseTranscript('相談内容は' + body + '。');
+  assert.deepEqual(result.values, {summary:body});
+  const company = parseTranscript('報告者試験担当。会社名。紹介書との関係株式会社。案件種別講習。');
+  assert.equal(company.values.orgName, '紹介書との関係株式会社');
+  assert.equal(Object.hasOwn(company.values, 'referrerRelationship'), false);
+});
 
 test('冒頭の報告・部署に連結した会社でも後続項目を振り分ける', () => {
   const result = parseTranscript(transcript);
@@ -114,6 +211,7 @@ test('補正見出しでも否定や複数の選択値を勝手に確定しな�
 });
 
 test('実際の反映ボタンの処理で全欄に入力し、原文・手入力を保持する', () => {
+  for (const sample of [transcript, latestTranscript]) {
   const fs = require('node:fs');
   const path = require('node:path');
   const vm = require('node:vm');
@@ -129,12 +227,16 @@ test('実際の反映ボタンの処理で全欄に入力し、原文・手入�
   elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? Object.keys(parser.fieldNames).map(id => elements[id]) : [];
   const context = vm.createContext({ document: { getElementById: id => elements[id] }, window: { CdpVoiceParser: parser }, CdpVoiceParser: parser });
   vm.runInContext(script, context);
-  elements.voiceTranscript.value = transcript;
+  elements.voiceTranscript.value = sample;
   elements.voiceApply.listeners.click();
-  for (const [id, value] of Object.entries({reporterName:'試験担当',reporterDepartment:'営業部',orgName:'架空 建設会社',caseKind:'請負',channel:'学校',desiredTime:'9月',urgency:'高'}))
+  const expected = sample === transcript
+    ? {reporterName:'試験担当',reporterDepartment:'営業部',orgName:'架空 建設会社',caseKind:'請負',channel:'学校',desiredTime:'9月',urgency:'高'}
+    : {reporterName:'試験担当',reporterDepartment:'営業部',orgName:'',caseKind:'講習',channel:'自治体',referrerRelationship:'取引先',discoveredOn:parseTranscript('案件を知った日は今日。').values.discoveredOn};
+  for (const [id, value] of Object.entries(expected))
     assert.equal(elements[id].value, value, id);
-  assert.equal(elements.voiceTranscript.value, transcript);
-  assert.match(elements.voiceResult.textContent, /死亡時期.*希望時期/);
+  assert.equal(elements.voiceTranscript.value, sample);
+  assert.match(elements.voiceResult.textContent, sample === transcript ? /死亡時期.*希望時期/ : /編集.*報告者/);
+  if (sample === latestTranscript) assert.equal(elements.summary.value, '');
   elements.orgName.value = '手入力した架空会社';
   elements.orgName.listeners.input();
   elements.urgency.value = '至急';
@@ -142,5 +244,6 @@ test('実際の反映ボタンの処理で全欄に入力し、原文・手入�
   elements.voiceApply.listeners.click();
   assert.equal(elements.orgName.value, '手入力した架空会社');
   assert.equal(elements.urgency.value, '至急');
-  assert.equal(elements.voiceTranscript.value, transcript);
+  assert.equal(elements.voiceTranscript.value, sample);
+  }
 });

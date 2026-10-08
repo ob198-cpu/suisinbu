@@ -56,10 +56,13 @@
     { alias: '署名', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), context: 'department' },
     { alias: '部署', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), context: 'department' },
     { alias: '報告', field: fields.find(function (field) { return field.key === 'reporterName'; }), context: 'reporter' },
+    { alias: '編集', field: fields.find(function (field) { return field.key === 'reporterName'; }), context: 'reporterCorrection', correction: true },
     { alias: '会社', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'company' },
+    { alias: '社', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'companyCorrection', correction: true },
     { alias: '企業名', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'company' },
     { alias: '関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'referrer' },
     { alias: '紹介者の関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'referrer' },
+    { alias: '紹介書との関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'form', correction: true },
     { alias: '担当者', field: fields.find(function (field) { return field.key === 'contactInfo'; }), context: 'form' },
     { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
     { alias: '希望日時', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
@@ -71,7 +74,7 @@
   ]).sort(function (a, b) { return b.alias.length - a.alias.length; });
   var spokenAliases = spokenEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
   var fillerWords = 'えーっと|えーと|ええと|えっと|えー|ええ|あのー|あの|はい';
-  var spokenMarker = new RegExp('(^|[。！？\\n;；])\\s*(?:(?:' + fillerWords + ')[ \\t　]+)*(?:と[ \\t　]*)?(' + spokenAliases.join('|') + ')', 'g');
+  var spokenMarker = new RegExp('(^|[。！？\\n;；])\\s*(?:(?:' + fillerWords + ')[ \\t　]*)*(?:と[ \\t　]*)?(' + spokenAliases.join('|') + ')', 'g');
 
   function clean(value) {
     return String(value || '').replace(/^[\s、,。！？;；]+|[\s、,。！？;；]+$/g, '').trim();
@@ -112,10 +115,37 @@
     var prefix = candidates.filter(function (item) { return !firstText || item.start <= firstText.start; });
     var formal = prefix.filter(function (item) { return !item.context; });
     // 省略・誤認識の見出しが先頭でも、後続に正式な項目が複数あれば構造化口述として扱う。
-    if (!prefix.length || !isSpeechFiller(source.slice(0, prefix[0].start))) return [];
+    if (!prefix.length) return [];
+    var atStart = isSpeechFiller(source.slice(0, prefix[0].start));
     var structured = new Set(formal.map(function (item) { return item.field.key; })).size >= 2;
+    if (!atStart && !structured) return [];
     return prefix.filter(function (item, index) {
       if ((item.attached || item.context) && !structured) return false;
+      // 不明な前置きから救済するのは正式見出しだけ。曖昧な省略語は推測しない。
+      if (item.context && !atStart) return false;
+      if (item.context === 'reporterCorrection') {
+        var joined = clean(source.slice(item.valueStart, prefix[index + 1] ? prefix[index + 1].start : source.length));
+        var joinedName = joined.match(/^([\p{L}\p{N} \t　・]{1,30})(?:部署名|所属部署)([^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター))$/u);
+        return index === 0 && joinedName && !/^(?:内容|して|した|する|画面|方法|機能|作業)/.test(joinedName[1]) &&
+          !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ)|(?:します|しました|です|でした)$)/.test(joinedName[1]);
+      }
+      if (item.context === 'companyCorrection') {
+        var beforeCompany = prefix[index - 1], afterCompany = prefix[index + 1];
+        var departmentText = beforeCompany && clean(source.slice(beforeCompany.valueStart, item.start));
+        var companyText = clean(source.slice(item.valueStart, afterCompany ? afterCompany.start : source.length));
+        var departmentPattern = beforeCompany && beforeCompany.field.key === 'reporterName'
+          ? /(?:部署名|所属部署)[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/
+          : /^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/;
+        var validCompanyContext = beforeCompany && ['reporterName', 'reporterDepartment'].includes(beforeCompany.field.key) &&
+          departmentPattern.test(departmentText) && afterCompany && !afterCompany.context &&
+          /^[^。！？\n]{1,100}(?:株式会社|有限会社|合同会社|合名会社|合資会社)$/.test(companyText);
+        if (validCompanyContext && item.attached) {
+          // 「社サンプル…」と「社労士…」は区別不能。実社名の先頭を落とさない。
+          item.uncertain = true;
+          item.uncertainMessage = '「社」が見出しか会社名の一部か確認してください。会社名は文字起こし欄に残しています。';
+        }
+        return validCompanyContext;
+      }
       if (item.context === 'reporter') {
         var name = clean(source.slice(item.valueStart, prefix[index + 1] ? prefix[index + 1].start : source.length));
         return index === 0 && !item.attached && /^[\p{L}\p{N} \t　・]{1,30}$/u.test(name) &&
@@ -164,6 +194,7 @@
   function splitFusedLabels(source, matches) {
     var successors = {
       reporterName: 'reporterDepartment', reporterDepartment: 'orgName',
+      discoveredOn: 'channel',
       channel: 'referrerName', referrerName: 'referrerRelationship'
     };
     for (var i = 0; i < matches.length; i += 1) {
@@ -182,12 +213,13 @@
       for (var j = 0; j < candidates.length; j += 1) {
         var candidate = candidates[j], left = clean(segment.slice(0, candidate.index));
         var after = segment.slice(candidate.index + candidate.entry.alias.length);
-        var separator = after.match(/^[ \t　]*(?:は|：|:|＝|=|、|,|[ \t　]+)/);
+        var separator = after.match(/^[ \t　]*(?:は|：|:|＝|=|、|,|[。]+|[ \t　]+)/);
         var right = clean(separator ? after.slice(separator[0].length) : after);
         if (!left || !right) continue;
         if (candidate.entry.abbreviated && (!separator || !/^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/.test(left))) continue;
         if (current.field.choices && !positiveChoice(left, current.field.choices)) continue;
-        if (!separator && (!['reporterDepartment', 'orgName'].includes(nextKey) || left.length > 20)) continue;
+        if (current.field.date && !normalizeDate(left)) continue;
+        if (!separator && (!['reporterDepartment', 'orgName', 'channel'].includes(nextKey) || left.length > 20)) continue;
         var start = current.valueStart + candidate.index;
         matches.splice(i + 1, 0, {
           field: candidate.entry.field, start: start,
@@ -246,7 +278,12 @@
     var allCandidates = matches.concat(inlineMatches, bareMatches, spoken, choiceMatches);
     var firstCandidate = allCandidates.slice().sort(function (a, b) { return a.start - b.start; })[0];
     var startsWithField = firstCandidate && isSpeechFiller(source.slice(0, firstCandidate.start));
-    if (startsWithField) {
+    var firstTextCandidate = allCandidates.filter(function (item) { return item.field.multiline; })
+      .sort(function (a, b) { return a.start - b.start; })[0];
+    var recoverFields = !startsWithField && new Set(allCandidates.filter(function (item) {
+      return !item.context && !item.field.multiline && (!firstTextCandidate || item.start < firstTextCandidate.start);
+    }).map(function (item) { return item.field.key; })).size >= 2;
+    if (startsWithField || recoverFields) {
       var firstSpokenFreeText = allCandidates.filter(function (item) { return item.field.multiline; })
         .sort(function (a, b) { return a.start - b.start; })[0];
       spoken.forEach(function (item) {
@@ -294,7 +331,7 @@
     matches.forEach(function (match, index) {
       var raw = clean(source.slice(match.valueStart, index + 1 < matches.length ? matches[index + 1].start : source.length));
       if (match.uncertain) {
-        issues.push(match.field.name + 'の項目名と氏名の境目を確認してください。');
+        issues.push(match.uncertainMessage || match.field.name + 'の項目名と氏名の境目を確認してください。');
         leftovers.push(clean(source.slice(match.start, index + 1 < matches.length ? matches[index + 1].start : source.length)));
         return;
       }
@@ -304,6 +341,12 @@
           if (!isSpeechFiller(raw.slice(sentenceEnd + 1))) leftovers.push(clean(raw.slice(sentenceEnd + 1)));
           raw = clean(raw.slice(0, sentenceEnd));
         }
+      }
+      if (recoverFields && ['reporterName', 'orgName', 'referrerName'].includes(match.field.key) &&
+          /(?:と(?:言われた|聞いた|話した|書いた|書かれた)|(?:について|とは)|(?:します|しました|です|でした)$)/.test(raw)) {
+        issues.push(match.field.name + 'を文章から特定できませんでした。文字起こしを確認してください。');
+        leftovers.push(clean(source.slice(match.start, index + 1 < matches.length ? matches[index + 1].start : source.length)));
+        return;
       }
       if (!raw || blocked.has(match.field.key)) return;
       if (match.field.choices) {
@@ -345,7 +388,9 @@
     });
 
     var unassigned = leftovers.filter(Boolean).join('。');
-    if (unassigned && !looksLikeField(unassigned) && !values.summary && !blocked.has('summary')) {
+    var structuredSpeech = recoverFields || matches.some(function (item) { return item.correctedLabel; }) ||
+      new Set(matches.filter(function (item) { return !item.field.multiline; }).map(function (item) { return item.field.key; })).size >= 2;
+    if (unassigned && !structuredSpeech && !looksLikeField(unassigned) && !values.summary && !blocked.has('summary')) {
       values.summary = unassigned;
       unassigned = '';
     }
