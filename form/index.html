@@ -32,16 +32,6 @@ html{-webkit-text-size-adjust:100%}
 .category-option{display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px;line-height:1.4}
 .category-option input{flex:none;width:20px;height:20px;margin:0}
 .notice{font-size:14px;line-height:1.5;color:#46576b}
-.voice-safety-dialog{width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;border:1px solid var(--line);border-radius:12px;padding:22px;color:var(--ink);box-shadow:0 18px 50px #102c4a55}
-.voice-safety-dialog::backdrop{background:#102c4aaa}
-.voice-safety-dialog h2{font-size:20px;line-height:1.4;margin:0 0 12px}
-.voice-safety-dialog p,.voice-safety-check{font-size:16px;line-height:1.6}
-.voice-safety-dialog p{margin:0 0 14px}
-.voice-safety-check{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px}
-.voice-safety-check input{flex:none;width:22px;height:22px;margin:2px 0 0}
-.voice-safety-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-.voice-safety-actions .btn{min-height:48px;font-size:16px}
-.voice-safety-dialog .btn:focus-visible,.voice-safety-check:focus-within{outline:3px solid #174f90;outline-offset:2px}
 @media(max-width:560px){
   body{min-width:320px}
   .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -59,8 +49,6 @@ html{-webkit-text-size-adjust:100%}
   .field textarea{min-height:140px}
   .actions{position:fixed;left:0;right:0;bottom:0;z-index:10;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#ffffffed;border-top:1px solid var(--line);box-shadow:0 -4px 15px #173f7014}
   .actions .btn{flex:1}
-  .voice-safety-dialog{padding:18px}
-  .voice-safety-actions{display:grid;grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -68,7 +56,7 @@ html{-webkit-text-size-adjust:100%}
 <main class="wrap">
 <header class="top"><h1>推進部システム入力フォーム</h1><p>必要な情報をまとめて話し、文字を確認してから各欄へ入力できます。</p><span class="pill">試験版・音声入力対応</span></header>
 <section class="card">
-<div class="voice"><h2>まとめて話してフォームに入力</h2><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、安全確認後に必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「報告者は山田。会社名はサンプル建設株式会社。案件種別は請負。相談内容は屋根の点検について相談された。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></div>
+<div class="voice"><h2>まとめて話してフォームに入力</h2><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「報告者は山田。会社名はサンプル建設株式会社。案件種別は請負。相談内容は屋根の点検について相談された。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></div>
 <div class="notice"><strong>送信前に必ず確認してください</strong>聞き間違い・振り分けられない内容は文字起こしに残します。入力済みの欄は勝手に上書きしません。音声ファイルはこのページに保存しませんが、ブラウザーの音声認識は提供元のサービスで処理される場合があります。</div>
 <form id="reportForm" novalidate>
 <div class="form">
@@ -105,12 +93,6 @@ html{-webkit-text-size-adjust:100%}
 </form><div class="result" id="result" role="alert"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：案件管理・受付確認待ち</p></div>
 </section><p class="footer">送信後は案件管理の「受付」が開き、確認から結果・営業活用まで同じ案件で管理します</p>
 </main>
-<dialog id="voiceSafetyDialog" class="voice-safety-dialog" aria-labelledby="voiceSafetyTitle" aria-describedby="voiceSafetyDescription">
-  <h2 id="voiceSafetyTitle">マイクを使う前に確認</h2>
-  <p id="voiceSafetyDescription">Zoom Workplaceはブラウザーの音声を検出するとMy Notesの通知を出す場合があります。このフォームからZoomの設定は確認できません。Zoomの［設定］→［通知とサウンド］→［音声を自動検出してMy Notesを作成する］をオフにするか、Zoomを完全に終了してから始めてください。確認できない場合はキャンセルし、文字で入力できます。</p>
-  <label class="voice-safety-check"><input type="checkbox" id="voiceSafetyAgree">Zoomの音声自動検出をオフにした、またはZoomを完全に終了したことを確認しました</label>
-  <div class="voice-safety-actions"><button type="button" class="btn" id="voiceSafetyCancel">キャンセル</button><button type="button" class="btn primary" id="voiceSafetyBegin" disabled>確認して話し始める</button></div>
-</dialog>
 <script src="./voice-parser.js"></script>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus"),FORM_TRANSFER_PREFIX='cdp_form_intake_transfer_v2:';
@@ -122,14 +104,8 @@ categoryInputs.forEach(el=>el.addEventListener('change',()=>{manualCategories.ad
 function setStatus(t){status.textContent=t}
 function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
 function stopVoice(){if(recognition&&listening){$('voiceStop').disabled=true;try{recognition.stop()}catch(e){recognition=null;setListening(false);setStatus('音声入力を停止しました。文字を確認してください。')}}}
-function openVoiceSafety(){
-  const dialog=$('voiceSafetyDialog');
-  if(listening)return;
-  if(typeof dialog.showModal!=='function'){setStatus('このブラウザーでは安全確認を表示できません。文字を直接入力してください。');return}
-  $('voiceSafetyAgree').checked=false;$('voiceSafetyBegin').disabled=true;
-  dialog.showModal();
-}
 function startVoice(){
+  if(listening)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){setStatus('このブラウザーは音声認識に対応していません。文字起こし欄へ直接入力できます。');return}
   recognition=new SR();recognition.lang='ja-JP';recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;
@@ -201,10 +177,7 @@ form.addEventListener('submit',e=>{
   const button=$('submitBtn');button.disabled=true;button.textContent='本体システムへ登録中…';setStatus('送信内容を本体システムへ引き渡しています。');
   location.assign(target.href);
 });
-$('voiceStart').addEventListener('click',openVoiceSafety);
-$('voiceSafetyAgree').addEventListener('change',()=>{$('voiceSafetyBegin').disabled=!$('voiceSafetyAgree').checked});
-$('voiceSafetyCancel').addEventListener('click',()=>{$('voiceSafetyDialog').close();setStatus('音声入力を開始せずにキャンセルしました。')});
-$('voiceSafetyBegin').addEventListener('click',()=>{if(!$('voiceSafetyAgree').checked)return;$('voiceSafetyDialog').close();startVoice()});
+$('voiceStart').addEventListener('click',startVoice);
 $('voiceStop').addEventListener('click',stopVoice);
 $('voiceApply').addEventListener('click',applyTranscript);
 transcript.addEventListener('input',()=>{$('voiceApply').disabled=listening||!transcript.value.trim()});
