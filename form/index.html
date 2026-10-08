@@ -78,9 +78,9 @@ html{-webkit-text-size-adjust:100%}
 <label class="category-option"><input type="checkbox" name="categories" value="測量">測量</label><label class="category-option"><input type="checkbox" name="categories" value="レーザー">レーザー</label><label class="category-option"><input type="checkbox" name="categories" value="点群/3D">点群/3D</label><label class="category-option"><input type="checkbox" name="categories" value="空撮">空撮</label><label class="category-option"><input type="checkbox" name="categories" value="点検">点検</label><label class="category-option"><input type="checkbox" name="categories" value="農業">農業</label>
 <label class="category-option"><input type="checkbox" name="categories" value="鳥獣/熊">鳥獣/熊</label><label class="category-option"><input type="checkbox" name="categories" value="物流">物流</label><label class="category-option"><input type="checkbox" name="categories" value="実証">実証</label><label class="category-option"><input type="checkbox" name="categories" value="イベント">イベント</label><label class="category-option"><input type="checkbox" name="categories" value="講演/説明会">講演/説明会</label><label class="category-option"><input type="checkbox" name="categories" value="その他">その他</label>
 </div></details>
-<fieldset class="conversation-group"><legend>会話・相談内容</legend><p class="conversation-help">分かる範囲の短いメモで構いません。概要のみ必須です。</p><div class="conversation-grid">
+<fieldset class="conversation-group"><legend>会話・相談内容</legend><p class="conversation-help">分かる範囲の短いメモで構いません。</p><div class="conversation-grid">
 <div class="field" data-field="conversationTrigger"><label for="conversationTrigger">会話のきっかけ</label><textarea id="conversationTrigger" maxlength="600" placeholder="例：定期訪問中に屋根の破損について相談された"></textarea><span class="err"></span></div>
-<div class="field" data-field="summary"><label for="summary">概要<span class="req">必須</span></label><textarea id="summary" maxlength="600" placeholder="会話・相談の要点を短く記録"></textarea><span class="err"></span></div>
+<div class="field" data-field="summary"><label for="summary">概要</label><textarea id="summary" maxlength="600" placeholder="会話・相談の要点を短く記録"></textarea><span class="err"></span></div>
 <div class="field" data-field="customerObjective"><label for="customerObjective">顧客の目的・課題<span class="hint">顧客の発言</span></label><textarea id="customerObjective" maxlength="2000" placeholder="実現したいこと、困っていること"></textarea><span class="err"></span></div>
 <div class="field" data-field="customerNeedsReaction"><label for="customerNeedsReaction">相手の要望・反応</label><textarea id="customerNeedsReaction" maxlength="600" placeholder="例：早めに実施可否と概算を知りたい"></textarea><span class="err"></span></div>
 <div class="field" data-field="ourResponseProposal"><label for="ourResponseProposal">こちらの返答・提案</label><textarea id="ourResponseProposal" maxlength="600" placeholder="例：条件確認後に実施方法と概算を案内すると回答"></textarea><span class="err"></span></div>
@@ -204,8 +204,7 @@ form.addEventListener('submit',e=>{
   const reporterName=$('reporterName').value.trim(),orgName=$('orgName').value.trim(),summary=$('summary').value.trim();
   if(!reporterName){document.querySelector('[data-field="reporterName"]').classList.add('error');document.querySelector('[data-field="reporterName"] .err').textContent='報告者の氏名を入力してください。';ok=false}
   if(!orgName){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}
-  if(!summary){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を入力してください。';ok=false}
-  else if(summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を5文字以上で入力してください。';ok=false}
+  if(summary&&summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を5文字以上で入力してください。';ok=false}
   const discoveredOn=$('discoveredOn').value;
   if(discoveredOn&&discoveredOn>submittedAt().slice(0,10)){document.querySelector('[data-field="discoveredOn"]').classList.add('error');document.querySelector('[data-field="discoveredOn"] .err').textContent='案件を知った日は今日以前にしてください。';ok=false}
   if(!ok)return;
