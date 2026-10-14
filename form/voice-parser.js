@@ -18,7 +18,7 @@
     { key: 'desiredTime', name: '希望時期', aliases: ['希望時期'] },
     { key: 'urgency', name: '緊急度', aliases: ['緊急度'], choices: ['通常', '高', '至急'] },
     { key: 'contactInfo', name: '先方担当者', aliases: ['先方の担当者', '先方担当者', '相手の担当者'] },
-    { key: 'budgetStatus', name: '予算の把握状況', aliases: ['先方予算の把握状況', '予算の把握状況', '予算確認状況', '予算状況'], choices: ['未確認', '不明', '把握している'] },
+    { key: 'budgetStatus', name: '予算の把握状況', aliases: ['先方予算の把握状況', '予算の把握状況', '予算確認状況', '予算状況', '先方予算', '先方の予算'], choices: ['未確認', '不明', '把握している'] },
     { key: 'budget', name: '想定予算', aliases: ['予算に関するメモ', '想定予算額', '想定予算', '予算額', '予算'] },
     { key: 'categories', name: '相談分野', aliases: ['相談分野'], multipleChoices: ['二等', '一等', '限定解除', '更新', '農業講習', 'その他講習', '機体', '部品/周辺機器', 'メンテナンス', '年次点検', '保険', '測量', 'レーザー', '点群/3D', '空撮', '点検', '農業', '鳥獣/熊', '物流', '実証', 'イベント', '講演/説明会', 'その他'] },
     { key: 'conversationTrigger', name: '会話のきっかけ', aliases: ['会話のきっかけ', '相談のきっかけ'], multiline: true },
@@ -31,21 +31,36 @@
   var aliasEntries = fields.flatMap(function (field) {
     return field.aliases.map(function (alias) { return { alias: alias, field: field }; });
   }).sort(function (a, b) { return b.alias.length - a.alias.length; });
-  var aliases = aliasEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+  // この3項目だけ、認識時に見出しの途中へ入る空白を許容する。値や原文の空白は削除しない。
+  function aliasPattern(entry) {
+    var parts = ['contactInfo', 'budgetStatus', 'budget'].includes(entry.field.key) ? Array.from(entry.alias) : [entry.alias];
+    return parts.map(function (part) { return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[ \\t　]*');
+  }
+
+  function entryForLabel(entries, label) {
+    var canonical = label.replace(/[ \t　]/g, '');
+    return entries.find(function (entry) { return entry.alias === canonical; });
+  }
+
+  function isClientBudgetLabel(match) {
+    return match.alias === '先方予算' || match.alias === '先方の予算';
+  }
+
+  var aliases = aliasEntries.map(aliasPattern);
   var marker = new RegExp('(^|[。！？\\n、,;；])\\s*(' + aliases.join('|') + ')\\s*(?:は|：|:|＝|=|、|,)\\s*', 'g');
   // 項目名と値を空白で区切る発話も、自由文が始まる前だけ扱う。
   var shortKeys = ['reporterName', 'reporterDepartment', 'orgName', 'caseKind'];
   var bareEntries = aliasEntries.filter(function (entry) {
     return ['種別', '経路', '予算', '概要', '注意点'].indexOf(entry.alias) < 0;
   });
-  var bareAliases = bareEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+  var bareAliases = bareEntries.map(aliasPattern);
   var bareMarker = new RegExp('(^|[。！？\\n、,;； \\t　])\\s*(' + bareAliases.join('|') + ')(?=[ \\t　]*(?:は|：|:|＝|=)|[ \\t　]+)', 'g');
   // 後続の項目は「項目名は値」と明示された場合だけ、句点なしの連続発話から拾う。
   var inlineEntries = aliasEntries.filter(function (entry) { return shortKeys.indexOf(entry.field.key) < 0; });
-  var inlineAliases = inlineEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+  var inlineAliases = inlineEntries.map(aliasPattern);
   var inlineMarker = new RegExp('([ \\t　]+)(' + inlineAliases.join('|') + ')[ \\t　]*(?:は|：|:|＝|=)', 'g');
   var choiceEntries = aliasEntries.filter(function (entry) { return entry.field.choices && entry.alias.length >= 3; });
-  var choiceAliases = choiceEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+  var choiceAliases = choiceEntries.map(aliasPattern);
   var choiceValues = Array.from(new Set(choiceEntries.flatMap(function (entry) { return entry.field.choices; })))
     .sort(function (a, b) { return b.length - a.length; })
     .map(function (choice) { return choice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
@@ -72,7 +87,7 @@
     { alias: '案件種類', field: fields.find(function (field) { return field.key === 'caseKind'; }), context: 'form' },
     { alias: '案件の種類', field: fields.find(function (field) { return field.key === 'caseKind'; }), context: 'form' }
   ]).sort(function (a, b) { return b.alias.length - a.alias.length; });
-  var spokenAliases = spokenEntries.map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+  var spokenAliases = spokenEntries.map(aliasPattern);
   var fillerWords = 'えーっと|えーと|ええと|えっと|えー|ええ|あのー|あの|はい';
   var spokenMarker = new RegExp('(^|[。！？\\n;；])\\s*(?:(?:' + fillerWords + ')[ \\t　]*)*(?:と[ \\t　]*)?(' + spokenAliases.join('|') + ')', 'g');
 
@@ -99,12 +114,13 @@
     var candidates = [], found;
     spokenMarker.lastIndex = 0;
     while ((found = spokenMarker.exec(source))) {
-      var entry = spokenEntries.find(function (item) { return item.alias === found[2]; });
+      var entry = entryForLabel(spokenEntries, found[2]);
       var end = spokenMarker.lastIndex;
       var separator = source.slice(end).match(/^[ \t　]*(?:(?:は|[：:＝=、,。]+)[ \t　]*)?/)[0];
       var attached = !separator;
       if (attached && (entry.field.multiline || /^(?:が|を|について|とは|の|に|へ|から)/.test(source.slice(end)))) continue;
-      candidates.push({ field: entry.field, start: found.index, labelStart: end - entry.alias.length, valueStart: end + separator.length,
+      candidates.push({ field: entry.field, alias: entry.alias, spacedLabel: found[2] !== entry.alias,
+        start: found.index, labelStart: end - found[2].length, valueStart: end + separator.length,
         context: entry.context, attached: attached, uncertain: attached && entry.alias === '報告者名',
         correctedLabel: entry.correction ? entry.alias : '' });
     }
@@ -182,6 +198,43 @@
     return choices.indexOf(normalized) >= 0 ? normalized : '';
   }
 
+  function explicitClientBudgetAmount(value) {
+    // 「想定」「未確認」「否定」「候補の列挙」は把握済みの根拠にしない。全文が明示金額の場合だけ使う。
+    var amount = clean(value).normalize('NFKC');
+    return /^(?:約|およそ|概ね)?\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*(?:億円|万円|円|億|万)(?:程度|くらい|ほど)?(?:です|でした)?$/.test(amount);
+  }
+
+  function protectExpandedLabels(source, candidates) {
+    // 「先方 予算は」の内側の「 予算は」を別の想定予算として重複検出しない。
+    var expanded = candidates.filter(function (item) { return item.spacedLabel || isClientBudgetLabel(item); });
+    candidates = candidates.filter(function (item) {
+      return !expanded.some(function (container) {
+        return container.start < item.start && container.valueStart >= item.valueStart && item.start < container.valueStart;
+      });
+    });
+    var firstText = candidates.filter(function (item) { return item.field.multiline; })
+      .sort(function (a, b) { return a.start - b.start; })[0];
+    var companyRanges = candidates.filter(function (item) { return item.field.key === 'orgName'; }).map(function (item) {
+      var sentence = source.slice(item.valueStart).split(/[。！？\n]/)[0];
+      var corporate = sentence.match(/(?:株式会社|有限会社|合同会社|合名会社|合資会社|法人|組合)/);
+      if (!corporate) return null;
+      var end = item.valueStart + corporate.index + corporate[0].length;
+      if (!clean(sentence.slice(0, corporate.index))) {
+        end = item.valueStart + sentence.length;
+        var next = candidates.filter(function (other) {
+          return !other.spacedLabel && !isClientBudgetLabel(other) && other.start > item.valueStart + corporate[0].length && other.start < end;
+        }).sort(function (a, b) { return a.start - b.start; })[0];
+        if (next) end = next.start;
+      }
+      return { start: item.valueStart, end: end };
+    }).filter(Boolean);
+    return candidates.filter(function (item) {
+      if (!item.spacedLabel && !isClientBudgetLabel(item)) return true;
+      if (firstText && item.start > firstText.start) return false;
+      return !companyRanges.some(function (range) { return item.valueStart > range.start && item.start < range.end; });
+    });
+  }
+
   function categoryChoices(value, choices) {
     var tokens = clean(value).replace(/(?:でした|です)$/, '')
       .split(/\s*(?:、|,|・|および|及び|と)\s*/).map(clean).filter(Boolean);
@@ -239,43 +292,53 @@
     var values = {}, issues = [], leftovers = [], blocked = new Set(), matches = [], found;
     marker.lastIndex = 0;
     while ((found = marker.exec(source))) {
-      var entry = aliasEntries.find(function (item) { return item.alias === found[2]; });
+      var entry = entryForLabel(aliasEntries, found[2]);
       var valueStart = marker.lastIndex;
       var matchedText = found[0].trimEnd();
       var commaLabel = /[、,]$/.test(matchedText);
-      matches.push({ field: entry.field, start: found.index, valueStart: valueStart, commaLabel: commaLabel });
+      matches.push({ field: entry.field, alias: entry.alias, spacedLabel: found[2] !== entry.alias,
+        start: found.index, valueStart: valueStart, commaLabel: commaLabel });
       // 読点を項目名の後に使い、値を省略して次の項目名を続けた場合も検出する。
       if (commaLabel) marker.lastIndex = valueStart - (found[0].length - matchedText.length) - 1;
     }
     var bareMatches = [];
     bareMarker.lastIndex = 0;
     while ((found = bareMarker.exec(source))) {
-      var bareEntry = bareEntries.find(function (item) { return item.alias === found[2]; });
+      var bareEntry = entryForLabel(bareEntries, found[2]);
       var bareValueStart = bareMarker.lastIndex;
       while (/[ \t　]/.test(source.charAt(bareValueStart))) bareValueStart += 1;
       if (/[は：:＝=]/.test(source.charAt(bareValueStart))) bareValueStart += 1;
       while (/[ \t　]/.test(source.charAt(bareValueStart))) bareValueStart += 1;
-      bareMatches.push({ field: bareEntry.field, start: found.index, valueStart: bareValueStart });
+      bareMatches.push({ field: bareEntry.field, alias: bareEntry.alias, spacedLabel: found[2] !== bareEntry.alias,
+        start: found.index, valueStart: bareValueStart });
     }
     var choiceMatches = [];
     fusedChoiceMarker.lastIndex = 0;
     while ((found = fusedChoiceMarker.exec(source))) {
-      var choiceEntry = choiceEntries.find(function (item) { return item.alias === found[2]; });
+      var choiceEntry = entryForLabel(choiceEntries, found[2]);
       if (choiceEntry.field.choices.some(function (choice) { return source.slice(fusedChoiceMarker.lastIndex).startsWith(choice); })) {
-        choiceMatches.push({ field: choiceEntry.field, start: found.index, valueStart: fusedChoiceMarker.lastIndex,
-          labelStart: fusedChoiceMarker.lastIndex - choiceEntry.alias.length, attached: true });
+        choiceMatches.push({ field: choiceEntry.field, alias: choiceEntry.alias, spacedLabel: found[2] !== choiceEntry.alias,
+          start: found.index, valueStart: fusedChoiceMarker.lastIndex,
+          labelStart: fusedChoiceMarker.lastIndex - found[2].length, attached: true });
       }
     }
     var inlineMatches = [];
     inlineMarker.lastIndex = 0;
     while ((found = inlineMarker.exec(source))) {
-      var inlineEntry = inlineEntries.find(function (item) { return item.alias === found[2]; });
+      var inlineEntry = entryForLabel(inlineEntries, found[2]);
       var inlineValueStart = inlineMarker.lastIndex;
       while (/[ \t　]/.test(source.charAt(inlineValueStart))) inlineValueStart += 1;
-      inlineMatches.push({ field: inlineEntry.field, start: found.index, valueStart: inlineValueStart });
+      inlineMatches.push({ field: inlineEntry.field, alias: inlineEntry.alias, spacedLabel: found[2] !== inlineEntry.alias,
+        start: found.index, valueStart: inlineValueStart });
     }
     var spoken = spokenMatches(source);
     var allCandidates = matches.concat(inlineMatches, bareMatches, spoken, choiceMatches);
+    allCandidates = protectExpandedLabels(source, allCandidates);
+    matches = matches.filter(function (item) { return allCandidates.includes(item); });
+    inlineMatches = inlineMatches.filter(function (item) { return allCandidates.includes(item); });
+    bareMatches = bareMatches.filter(function (item) { return allCandidates.includes(item); });
+    spoken = spoken.filter(function (item) { return allCandidates.includes(item); });
+    choiceMatches = choiceMatches.filter(function (item) { return allCandidates.includes(item); });
     var firstCandidate = allCandidates.slice().sort(function (a, b) { return a.start - b.start; })[0];
     var startsWithField = firstCandidate && isSpeechFiller(source.slice(0, firstCandidate.start));
     var firstTextCandidate = allCandidates.filter(function (item) { return item.field.multiline; })
@@ -335,7 +398,11 @@
         leftovers.push(clean(source.slice(match.start, index + 1 < matches.length ? matches[index + 1].start : source.length)));
         return;
       }
-      if (!match.field.multiline) {
+      if (isClientBudgetLabel(match) || ['contactInfo', 'budget'].includes(match.field.key)) {
+        var lastSentence = raw.match(/([。！？\n]+)([^。！？\n]+)$/);
+        if (lastSentence && isSpeechFiller(lastSentence[2])) raw = clean(raw.slice(0, lastSentence.index));
+      }
+      if (!isClientBudgetLabel(match) && !match.field.multiline && !['contactInfo', 'budget'].includes(match.field.key)) {
         var sentenceEnd = raw.search(/[。！？\n]/);
         if (sentenceEnd >= 0) {
           if (!isSpeechFiller(raw.slice(sentenceEnd + 1))) leftovers.push(clean(raw.slice(sentenceEnd + 1)));
@@ -351,6 +418,7 @@
       if (!raw || blocked.has(match.field.key)) return;
       if (match.field.choices) {
         var chosen = positiveChoice(raw, match.field.choices, match.field.key);
+        if (!chosen && isClientBudgetLabel(match) && explicitClientBudgetAmount(raw)) chosen = '把握している';
         if (!chosen) {
           issues.push(match.field.name + 'は選択肢を一つに決められませんでした。');
           return;
