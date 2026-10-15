@@ -6,6 +6,16 @@ const { parseTranscript } = require('./form/voice-parser.js');
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
 const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
 
+test('短縮した売上30万も見込みの原文として反映し、実績・前年・曖昧な金額は混ぜない', () => {
+  const result=parseTranscript('試験担当 管理部。案件 サンプル。案件種別 学校。案件先 会社。架空サンプル。案件先 担当者 取引先担当A。案件先 連絡先 sample@example.invalid。実施日 10月中。売上30万');
+  assert.equal(result.values.revenueEstimate,'30万');
+  for(const label of ['売上','売上げ','売り上げ']) for(const amount of ['30万','0円','約30万円','３．５万円']) assert.equal(parseTranscript(label+amount).values.revenueEstimate,amount,label+amount);
+  for(const text of ['前年売上30万','実績売上30万','売上実績30万','売上30万ではない','売上30万か50万','売上30万の実績','売上30万。昨年の実績です。案件種別学校。実施日今日','備考・共有事項は先月の記録。売上30万。案件種別学校。実施日今日']) assert.equal(parseTranscript(text).values.revenueEstimate,undefined,text);
+  const duplicate=parseTranscript('案件種別学校。実施日今日。売上30万。売上40万');assert.equal(duplicate.values.revenueEstimate,undefined);assert(duplicate.issues.some(issue=>issue.includes('複数')));
+  for(const text of ['昨年度の数字を聞いた。売上30万。案件種別学校。実施日10月中','昨年度の数字を聞いた。案件種別学校。実施日10月中。売上30万']) assert.equal(parseTranscript(text).values.revenueEstimate,undefined,text);
+  for(const [label,key] of [['案件名','caseTitle'],['会社名','orgName']]) {const parsed=parseTranscript(label+'。。売上30万。案件種別学校。実施日今日');assert.equal(parsed.values[key],'売上30万');assert.equal(parsed.values.revenueEstimate,undefined);}
+});
+
 test('現行項目の連結・句点・言いよどみと売り上げ表記で後続項目を失わない', () => {
   const result=parseTranscript('報告者。。試験担当部署営業部案件名。。ええ。テスト。。案件種別。。学校。。案件先架空サンプル。。案件先担当。。取引先担当A。。案件先担当。。今日。。売り上げ見込み30万。。尾行なし。');
   for(const [key,value] of Object.entries({reporterName:'試験担当',reporterDepartment:'営業部',caseTitle:'テスト',caseKind:'学校',orgName:'架空サンプル',revenueEstimate:'30万'})) assert.equal(result.values[key],value,key);

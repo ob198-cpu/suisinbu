@@ -85,6 +85,8 @@
     { alias: '担当者', field: fields.find(function (field) { return field.key === 'contactInfo'; }), context: 'form' },
     { alias: '案件先担当', field: fields.find(function (field) { return field.key === 'contactPerson'; }), context: 'clientContact' },
     { alias: '案件先', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'clientCompany' },
+    // 現行フォームで金額を明示した短縮見出しだけに限定する。実績や文章からの推定には使わない。
+    ...['売り上げ', '売上げ', '売上'].map(function (alias) { return { alias: alias, field: fields.find(function (field) { return field.key === 'revenueEstimate'; }), context: 'revenueAmount' }; }),
     { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
     { alias: '希望日時', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
     { alias: '希望期間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
@@ -142,9 +144,19 @@
     var structured = new Set(formal.map(function (item) { return item.field.key; })).size >= 2;
     if (!atStart && !structured) return [];
     return prefix.filter(function (item, index) {
-      if ((item.attached || item.context) && !structured) return false;
+      var shortRevenue = item.context === 'revenueAmount';
+      if ((item.attached || item.context) && !structured && !shortRevenue) return false;
       // 不明な前置きから救済するのは正式見出しだけ。曖昧な省略語は推測しない。
-      if (item.context && !atStart) return false;
+      if (item.context && !atStart && !shortRevenue) return false;
+      if (shortRevenue) {
+        var nextRevenue = prefix[index + 1], previousRevenue = prefix[index - 1];
+        // 未記入欄の直後ならその欄の値を奪わず、不定形の前置きからは期限直後だけを救済する。
+        if (previousRevenue && !clean(source.slice(previousRevenue.valueStart, item.labelStart))) return false;
+        if (!atStart && (!previousRevenue || previousRevenue.field.key !== 'desiredTime')) return false;
+        if (/(?:前年|前年度|昨年|昨年度|先月|過去|実績)/.test(source.slice(0, item.labelStart))) return false;
+        // 既存の明示金額判定を検証だけに利用し、原文字列も予算・実績の値も変更しない。
+        return explicitClientBudgetAmount(clean(source.slice(item.valueStart, nextRevenue ? nextRevenue.start : source.length)));
+      }
       if (item.context === 'reporterCorrection') {
         var joined = clean(source.slice(item.valueStart, prefix[index + 1] ? prefix[index + 1].start : source.length));
         var joinedName = joined.match(/^([\p{L}\p{N} \t　・]{1,30})(?:部署名|所属部署)([^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター))$/u);
