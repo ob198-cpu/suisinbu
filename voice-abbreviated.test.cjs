@@ -6,6 +6,80 @@ const { parseTranscript } = require('./form/voice-parser.js');
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
 const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
 
+test('既知の報告者と部署だけは選択肢全文の丁寧語を除き、重複しても競合しない', () => {
+  for (const [key, label, choices] of [
+    ['reporterName', '報告者', ['小田','横山','斉藤','高木','渋谷']],
+    ['reporterDepartment', '部署名', ['管理部','推進部','技術部','運営部']]
+  ]) {
+    for (const value of choices) for (const suffix of ['です','でした','にします','を選びます','でお願いします']) {
+      for (const gap of ['', ' ']) {
+        const result = parseTranscript(`${label}は${value}${gap}${suffix}。${label} ${value}。`);
+        assert.equal(result.values[key], value, `${label}:${value}${gap}${suffix}`);
+        assert.deepEqual(result.issues, []);
+      }
+    }
+  }
+  for (const [label, key, value] of [
+    ['報告者', 'reporterName', '架空担当です'],
+    ['報告者', 'reporterName', '横山ではない'],
+    ['報告者', 'reporterName', '横山か小田'],
+    ['報告者', 'reporterName', '横山ですです'],
+    ['部署名', 'reporterDepartment', '試験部です'],
+    ['部署名', 'reporterDepartment', '管理部ではなく技術部'],
+    ['部署名', 'reporterDepartment', '管理部か技術部']
+  ]) assert.equal(parseTranscript(`${label} ${value}。`).values[key], value, '未知名や否定・候補列挙を補正しない');
+});
+
+test('報告者句の明確な部署境界では丁寧語があっても氏名と部署を分ける', () => {
+  for (const name of ['小田','横山','斉藤','高木','渋谷','架空担当']) {
+    for (const department of ['管理部','推進部','技術部','運営部']) {
+      for (const suffix of ['です','でした','でお願いします']) {
+        const result = parseTranscript(`報告者 ${name} ${department}${suffix}。案件名 サンプル。案件種別 学校。`);
+        assert.equal(result.values.reporterName, name);
+        assert.equal(result.values.reporterDepartment, department);
+        assert.equal(result.values.caseTitle, 'サンプル');
+      }
+    }
+  }
+  for (const phrase of ['横山管理部です','横山 管理部 技術部です','横山 管理部ではない','横山 管理部か技術部です']) {
+    const result = parseTranscript(`報告者 ${phrase}。案件名 サンプル。案件種別 学校。`);
+    assert.equal(result.values.reporterDepartment, undefined, phrase);
+    assert.equal(result.values.reporterName, phrase, phrase);
+  }
+});
+
+test('複合した案件種別は全文の中点・空白の有無だけを補正する', () => {
+  for (const [spoken, value] of [
+    ['打ち合わせ会議','打ち合わせ・会議'],['打ち合わせ 会議','打ち合わせ・会議'],
+    ['機体点検整備','機体点検・整備'],['機体点検 整備','機体点検・整備']
+  ]) for (const suffix of ['', 'です']) {
+    assert.equal(parseTranscript(`案件種別 ${spoken}${suffix}。`).values.caseKind, value, spoken+suffix);
+  }
+  for (const value of ['会議','機体点検','整備','打ち合わせと会議','打ち合わせ会議ではない','機体点検整備か学校','機体点検整備の相談']) {
+    assert.equal(parseTranscript(`案件種別 ${value}。`).values.caseKind, undefined, value);
+  }
+  assert.equal(parseTranscript('案件種別 打ち合わせ。').values.caseKind, '打ち合わせ', '旧フォームの種別を変えない');
+  const body = '報告者 横山です。部署名 管理部です。案件種別 打ち合わせ会議';
+  assert.deepEqual(parseTranscript('備考は'+body+'。').values, {reporterNotes:body}, '自由文から選択値を抜き出さない');
+});
+
+test('機体点検整備は単独で見出しまで連結しても全文だけを案件種別として認識する', () => {
+  for (const suffix of ['', 'です', 'でした', 'にします', 'を選びます', 'でお願いします']) {
+    const result = parseTranscript('案件種別機体点検整備'+suffix+'。');
+    assert.deepEqual(result.values, {caseKind:'機体点検・整備'});
+    assert.deepEqual(result.issues, []);
+  }
+  for (const value of ['機体点検整備ではない','機体点検整備か学校','機体点検整備の相談','機体点検','整備']) {
+    assert.equal(parseTranscript('案件種別'+value+'。').values.caseKind, undefined, value);
+  }
+  const body = '案件種別機体点検整備。実施日今日';
+  assert.deepEqual(parseTranscript('備考は'+body+'。').values, {reporterNotes:body});
+  const company = parseTranscript('報告者 横山。会社名。案件種別機体点検整備株式会社。');
+  assert.equal(company.values.orgName, '案件種別機体点検整備株式会社');
+  assert.equal(company.values.caseKind, undefined);
+  assert.equal(parseTranscript('緊急度機体点検整備。').values.urgency, undefined, '他の選択欄へ適用しない');
+});
+
 test('報告者その他の氏名を既存reporterNameへ解決し、空欄・未記入・超過は送らない', () => {
   const form=require('./form/report-form.js');
   const sample={reporterName:'その他',reporterDepartment:'管理部',caseTitle:'架空点検',caseKind:'学校',orgName:'架空サンプル',contactPerson:'取引先担当A',contactDetails:'sample@example.invalid',desiredTime:'未定',revenueEstimate:'未定',reporterNotes:''};

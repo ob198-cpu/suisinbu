@@ -68,7 +68,7 @@
   var choiceValues = Array.from(new Set(choiceEntries.flatMap(function (entry) { return entry.field.choices; })))
     .sort(function (a, b) { return b.length - a.length; })
     .map(function (choice) { return choice.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
-  var fusedChoiceMarker = new RegExp('(^|[。！？\\n;；])\\s*(' + choiceAliases.join('|') + ')(?=' + choiceValues.join('|') + ')', 'g');
+  var fusedChoiceMarker = new RegExp('(^|[。！？\\n;；])\\s*(' + choiceAliases.join('|') + ')(?=' + choiceValues.concat(['機体点検整備']).join('|') + ')', 'g');
 
   // 句頭の正式な見出しを使う口述では、音声認識が区切りを省略したり句点へ変えたりする。
   var spokenEntries = bareEntries.concat([
@@ -234,7 +234,14 @@
     var normalized = clean(value).replace(/[\s　]/g, '').replace(/(?:でお願いします|を選びます|にします|でした|です)$/, '');
     if (fieldKey === 'urgency' && normalized === '高め') normalized = '高';
     if (fieldKey === 'caseKind') normalized = normalized.replace(/^請負業務(?:／|\/|の)?(測量|点検|防除|調査)$/, '請負業務／$1');
+    if (fieldKey === 'caseKind') normalized = normalized.replace(/^打ち合わせ・?会議$/, '打ち合わせ・会議').replace(/^機体点検・?整備$/, '機体点検・整備');
     return choices.indexOf(normalized) >= 0 ? normalized : '';
+  }
+
+  function knownSelection(value, choices) {
+    // 固定選択肢の全文に付いた語尾だけを扱い、未知の氏名や文章は書き換えない。
+    var match = value.match(/^(.+?)[ \t　]*(?:でお願いします|を選びます|にします|でした|です)$/);
+    return match && choices.includes(match[1]) ? match[1] : value;
   }
 
   function explicitClientBudgetAmount(value) {
@@ -298,7 +305,7 @@
       if (current.field.key === 'reporterName') {
         // 明示された報告者句の末尾にある現行部署だけを分ける。氏名・社名・原文は正規化しない。
         var reporterSentence = segment.split(/[。！？\n]/)[0];
-        var reporterAndDepartment = reporterSentence.match(/^([\p{L}\p{N}・ \t　]{1,30}?)([ \t　]+)(管理部|推進部|技術部|運営部)[ \t　]*$/u);
+        var reporterAndDepartment = reporterSentence.match(/^([\p{L}\p{N}・ \t　]{1,30}?)([ \t　]+)((?:管理部|推進部|技術部|運営部)(?:[ \t　]*(?:でお願いします|を選びます|にします|でした|です))?)[ \t　]*$/u);
         if (reporterAndDepartment && clean(reporterAndDepartment[1]) &&
             !/(?:^|[ \t　])(?:管理部|推進部|技術部|運営部)(?=$|[ \t　])/.test(reporterAndDepartment[1]) &&
             !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ))/.test(reporterAndDepartment[1])) {
@@ -378,7 +385,8 @@
     fusedChoiceMarker.lastIndex = 0;
     while ((found = fusedChoiceMarker.exec(source))) {
       var choiceEntry = entryForLabel(choiceEntries, found[2]);
-      if (choiceEntry.field.choices.some(function (choice) { return source.slice(fusedChoiceMarker.lastIndex).startsWith(choice); })) {
+      if (choiceEntry.field.choices.some(function (choice) { return source.slice(fusedChoiceMarker.lastIndex).startsWith(choice); }) ||
+          (choiceEntry.field.key === 'caseKind' && source.slice(fusedChoiceMarker.lastIndex).startsWith('機体点検整備'))) {
         choiceMatches.push({ field: choiceEntry.field, alias: choiceEntry.alias, spacedLabel: found[2] !== choiceEntry.alias,
           start: found.index, valueStart: fusedChoiceMarker.lastIndex,
           labelStart: fusedChoiceMarker.lastIndex - found[2].length, attached: true });
@@ -479,6 +487,8 @@
           raw = clean(raw.slice(0, sentenceEnd));
         }
       }
+      if (match.field.key === 'reporterName') raw = knownSelection(raw, ['小田', '横山', '斉藤', '高木', '渋谷']);
+      if (match.field.key === 'reporterDepartment') raw = knownSelection(raw, ['管理部', '推進部', '技術部', '運営部']);
       if (recoverFields && ['reporterName', 'orgName', 'referrerName'].includes(match.field.key) &&
           /(?:と(?:言われた|聞いた|話した|書いた|書かれた)|(?:について|とは)|(?:します|しました|です|でした)$)/.test(raw)) {
         issues.push(match.field.name + 'を文章から特定できませんでした。文字起こしを確認してください。');

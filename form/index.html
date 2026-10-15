@@ -80,7 +80,7 @@ html{-webkit-text-size-adjust:100%}
 </section><p class="footer">送信後は案件管理の「受付」が開き、確認から結果・営業活用まで同じ案件で管理します</p>
 </main>
 <script src="./report-form.js?v=20261015-other-reporter"></script>
-<script src="./voice-parser.js?v=20261015-voice-all-fields"></script>
+<script src="./voice-parser.js?v=20261015-voice-audit"></script>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus"),FORM_TRANSFER_PREFIX='cdp_form_intake_transfer_v2:';
 let recognition=null,listening=false,voiceBase='',voiceWanted=false,voiceRetryTimer=null,voiceRetryDelay=300,voiceEndMessage='';
@@ -187,7 +187,10 @@ function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classLi
 function requestId(){return window.crypto&&window.crypto.randomUUID?'external-'+window.crypto.randomUUID():'external-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e9).toString(36)}
 function submittedAt(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
 form.addEventListener('submit',e=>{
-  e.preventDefault();clearErrors();
+  e.preventDefault();
+  if($('submitBtn').disabled)return;
+  if(listening){setStatus('音声入力中です。「話し終える」を押し、内容を項目に反映してから報告してください。');return}
+  clearErrors();
   if(!window.CdpReportForm){setStatus('入力確認機能を読み込めませんでした。再読み込みしてください。未送信です。');return}
   const checked=CdpReportForm.validate({...Object.fromEntries(CdpReportForm.fields.map(field=>[field.key,$(field.key).value])),reporterNameOther:$('reporterNameOther').value});
   function errorControl(key){return key==='reporterName'&&$('reporterName').value==='その他'?$('reporterNameOther'):$(key)}
@@ -207,7 +210,12 @@ form.addEventListener('submit',e=>{
   try{sessionStorage.setItem(transferKey,serialized)}catch(error){const result=$('result');result.classList.add('show','error');result.querySelector('h2').textContent='登録を開始できませんでした';result.querySelector('p').textContent='ブラウザの一時保存が利用できません。設定を確認して、もう一度送信してください。入力内容はこの画面に残っています。';setStatus('送信できませんでした。入力内容を保持しています。');return}
   target.searchParams.set('intakeId',envelope.requestId);
   const button=$('submitBtn');button.disabled=true;button.textContent='本体システムへ登録中…';setStatus('送信内容を本体システムへ引き渡しています。');
-  location.assign(target.href);
+  try{location.assign(target.href)}catch(error){
+    try{sessionStorage.removeItem(transferKey)}catch(storageError){}
+    button.disabled=false;button.textContent='内容を確認して報告';
+    const result=$('result');result.classList.add('show','error');result.querySelector('h2').textContent='本体システムを開けませんでした';result.querySelector('p').textContent='入力内容はこの画面に残っています。登録は開始していません。もう一度送信してください。';
+    setStatus('本体システムを開けませんでした。入力内容を保持しています。');
+  }
 });
 $('voiceStart').addEventListener('click',startVoice);
 $('voiceStop').addEventListener('click',stopVoice);
