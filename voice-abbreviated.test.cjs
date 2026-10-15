@@ -6,6 +6,27 @@ const { parseTranscript } = require('./form/voice-parser.js');
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
 const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
 
+test('現行項目の連結・句点・言いよどみと売り上げ表記で後続項目を失わない', () => {
+  const result=parseTranscript('報告者。。試験担当部署営業部案件名。。ええ。テスト。。案件種別。。学校。。案件先架空サンプル。。案件先担当。。取引先担当A。。案件先担当。。今日。。売り上げ見込み30万。。尾行なし。');
+  for(const [key,value] of Object.entries({reporterName:'試験担当',reporterDepartment:'営業部',caseTitle:'テスト',caseKind:'学校',orgName:'架空サンプル',revenueEstimate:'30万'})) assert.equal(result.values[key],value,key);
+  assert.equal(result.values.contactPerson,undefined);assert.equal(result.values.desiredTime,undefined);assert.equal(result.values.reporterNotes,undefined);
+  assert(result.issues.some(issue=>issue.includes('複数')));assert(result.unassigned.includes('尾行なし'));
+});
+
+test('現行10項目を句点区切りで振り分けても原文の金額と日付を推定変換しない', () => {
+  const result=parseTranscript('報告者。。試験担当部署管理部案件名。。ええ。屋根点検。。案件種別。。学校。。案件先架空サンプル。。案件先担当。。取引先担当A。。連絡先。。sample@example.invalid。。実施日・期限。。今日。。売り上げ見込み30万。。備考・共有事項。。再確認する。');
+  assert.deepEqual(result.values,{reporterName:'試験担当',reporterDepartment:'管理部',caseTitle:'屋根点検',caseKind:'学校',orgName:'架空サンプル',contactPerson:'取引先担当A',contactDetails:'sample@example.invalid',desiredTime:'今日',revenueEstimate:'30万',reporterNotes:'再確認する'});
+});
+
+test('省略した新見出しを自由文と会社名の内部から抽出しない', () => {
+  const body='案件先架空サンプル。案件先担当取引先担当A。売り上げ見込み30万。案件名テスト';
+  for(const [heading,key] of [['備考・共有事項は','reporterNotes'],['相談内容は','summary']]) assert.deepEqual(parseTranscript(heading+body+'。').values,{[key]:body});
+  for(const name of ['売り上げ見込み研究株式会社','案件名研究株式会社','案件先サンプル株式会社','案件先担当株式会社']) {
+    const result=parseTranscript('報告者は試験担当。会社名。。'+name+'。案件種別学校。');
+    assert.equal(result.values.orgName,name);assert.equal(result.values.revenueEstimate,undefined);assert.equal(result.values.caseTitle,undefined);assert.equal(result.values.contactPerson,undefined);
+  }
+});
+
 test('再報告された無空白・見出し誤認識でも明確な欄を個別に反映する', () => {
   const result = parseTranscript(latestTranscript);
   for (const [key, value] of Object.entries({reporterName:'試験担当',reporterDepartment:'営業部',caseKind:'講習',channel:'自治体',referrerRelationship:'取引先'}))

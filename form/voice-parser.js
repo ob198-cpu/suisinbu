@@ -21,7 +21,7 @@
     { key: 'contactInfo', name: '先方担当者', aliases: ['先方の担当者', '先方担当者', '相手の担当者'] },
     { key: 'contactPerson', name: '案件先担当者', aliases: ['案件先担当者(役職も分かれば記載)', '案件先担当者（役職も分かれば記載）', '案件先担当者'] },
     { key: 'contactDetails', name: '案件先担当者の連絡先', aliases: ['案件先担当者連絡先(番号・メアド)', '案件先担当者連絡先（番号・メアド）', '案件先担当者の連絡先', '案件先担当者連絡先', '担当者の連絡先', '連絡先(番号・メアド)', '連絡先（番号・メアド）', '連絡先'] },
-    { key: 'revenueEstimate', name: '売上げ見込み', aliases: ['売上げ見込み', '売上見込み', '売上げ見込', '売上見込'] },
+    { key: 'revenueEstimate', name: '売上げ見込み', aliases: ['売り上げ見込み', '売り上げ見込', '売上げ見込み', '売上見込み', '売上げ見込', '売上見込'] },
     { key: 'budgetStatus', name: '予算の把握状況', aliases: ['先方予算の把握状況', '予算の把握状況', '予算確認状況', '予算状況', '先方予算', '先方の予算'], choices: ['未確認', '不明', '把握している'] },
     { key: 'budget', name: '想定予算', aliases: ['予算に関するメモ', '想定予算額', '想定予算', '予算額', '予算'] },
     { key: 'categories', name: '相談分野', aliases: ['相談分野'], multipleChoices: ['二等', '一等', '限定解除', '更新', '農業講習', 'その他講習', '機体', '部品/周辺機器', 'メンテナンス', '年次点検', '保険', '測量', 'レーザー', '点群/3D', '空撮', '点検', '農業', '鳥獣/熊', '物流', '実証', 'イベント', '講演/説明会', 'その他'] },
@@ -83,6 +83,8 @@
     { alias: '紹介者の関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'referrer' },
     { alias: '紹介書との関係', field: fields.find(function (field) { return field.key === 'referrerRelationship'; }), context: 'form', correction: true },
     { alias: '担当者', field: fields.find(function (field) { return field.key === 'contactInfo'; }), context: 'form' },
+    { alias: '案件先担当', field: fields.find(function (field) { return field.key === 'contactPerson'; }), context: 'clientContact' },
+    { alias: '案件先', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'clientCompany' },
     { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
     { alias: '希望日時', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
     { alias: '希望期間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
@@ -172,6 +174,17 @@
           !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ)|(?:します|しました|です|でした)$)/.test(name);
       }
       if (item.context === 'company') return !item.attached;
+      if (item.context === 'clientCompany' || item.context === 'clientContact') {
+        var previousClient = prefix[index - 1], nextClient = prefix[index + 1];
+        var clientValue = clean(source.slice(item.valueStart, nextClient ? nextClient.start : source.length));
+        // 現行フォームの順序で口述された省略見出しだけを扱い、文章や会社名内の語は救済しない。
+        var allowedPrevious = item.context === 'clientCompany'
+          ? ['caseTitle', 'caseKind', 'reporterDepartment']
+          : ['orgName', 'contactPerson'];
+        return previousClient && allowedPrevious.includes(previousClient.field.key) &&
+          /^[^。！？\n]{1,100}$/.test(clientValue) && !looksLikeField(clientValue) &&
+          !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ)|(?:します|しました|です|でした)$)/.test(clientValue);
+      }
       if (item.context === 'department') {
         var previous = prefix[index - 1], next = prefix[index + 1];
         var department = clean(source.slice(item.valueStart, next ? next.start : source.length));
@@ -251,16 +264,20 @@
   // 冒頭の定型項目と選択肢の明確な並びだけを分ける。
   function splitFusedLabels(source, matches) {
     var successors = {
-      reporterName: 'reporterDepartment', reporterDepartment: 'orgName',
+      reporterName: ['reporterDepartment'], reporterDepartment: ['orgName', 'caseTitle'],
       discoveredOn: 'channel',
       channel: 'referrerName', referrerName: 'referrerRelationship'
     };
     for (var i = 0; i < matches.length; i += 1) {
-      var current = matches[i], nextKey = successors[current.field.key];
-      if (!nextKey) continue;
+      var current = matches[i], nextKeys = successors[current.field.key];
+      if (!nextKeys) continue;
+      if (!Array.isArray(nextKeys)) nextKeys = [nextKeys];
       var boundary = i + 1 < matches.length ? matches[i + 1].start : source.length;
       var segment = source.slice(current.valueStart, boundary);
-      var nextEntries = aliasEntries.filter(function (entry) { return entry.field.key === nextKey && entry.alias.length >= 3; });
+      var nextEntries = aliasEntries.filter(function (entry) { return nextKeys.includes(entry.field.key) && entry.alias.length >= 3; });
+      if (current.field.key === 'reporterName') nextEntries.push({
+        alias: '部署', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), abbreviatedDepartment: true
+      });
       if (current.field.key === 'reporterDepartment') nextEntries.push({
         alias: '会社', field: fields.find(function (field) { return field.key === 'orgName'; }), abbreviated: true
       });
@@ -270,10 +287,14 @@
         .sort(function (a, b) { return a.index - b.index || b.entry.alias.length - a.entry.alias.length; });
       for (var j = 0; j < candidates.length; j += 1) {
         var candidate = candidates[j], left = clean(segment.slice(0, candidate.index));
+        var nextKey = candidate.entry.field.key;
         var after = segment.slice(candidate.index + candidate.entry.alias.length);
         var separator = after.match(/^[ \t　]*(?:は|：|:|＝|=|、|,|[。]+|[ \t　]+)/);
         var right = clean(separator ? after.slice(separator[0].length) : after);
         if (!left || !right) continue;
+        if (candidate.entry.abbreviatedDepartment && (!/^[\p{L}\p{N} \t　・]{1,20}$/u.test(left) ||
+            !/^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)案件名(?=[ \t　は：:＝=、,。])/.test(right))) continue;
+        if (nextKey === 'caseTitle' && (!separator || !/^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/.test(left))) continue;
         if (candidate.entry.abbreviated && (!separator || !/^[^。！？\n]{1,30}(?:部|課|室|局|支店|支社|事業所|センター)$/.test(left))) continue;
         if (current.field.choices && !positiveChoice(left, current.field.choices)) continue;
         if (current.field.date && !normalizeDate(left)) continue;
@@ -398,6 +419,14 @@
 
     matches.forEach(function (match, index) {
       var raw = clean(source.slice(match.valueStart, index + 1 < matches.length ? matches[index + 1].start : source.length));
+      if (match.field.key === 'caseTitle') {
+        // 見出し直後の「ええ。テスト」のような言いよどみだけを除き、タイトル本文は書き換えない。
+        var leadingFiller = raw.match(/^[^。！？\n]+[。！？\n]+/);
+        while (leadingFiller && isSpeechFiller(leadingFiller[0])) {
+          raw = clean(raw.slice(leadingFiller[0].length));
+          leadingFiller = raw.match(/^[^。！？\n]+[。！？\n]+/);
+        }
+      }
       if (match.uncertain) {
         issues.push(match.uncertainMessage || match.field.name + 'の項目名と氏名の境目を確認してください。');
         leftovers.push(clean(source.slice(match.start, index + 1 < matches.length ? matches[index + 1].start : source.length)));
