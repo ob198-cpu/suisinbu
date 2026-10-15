@@ -25,12 +25,15 @@ html{-webkit-text-size-adjust:100%}
 .voice-transcript{width:100%;min-height:124px;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;line-height:1.55;resize:vertical;background:#fff}
 .voice-transcript:focus-visible,.voice .btn:focus-visible{outline:3px solid #174f90;outline-offset:2px}
 .voice-result{margin-top:10px;color:var(--ink)}
-.form-details{grid-column:1/-1;border:1px solid var(--line);border-radius:10px;background:#fbfdff;padding:0 12px}
-.form-details summary{min-height:44px;display:list-item;padding:11px 0;cursor:pointer;color:var(--navy);font-size:16px;font-weight:700;line-height:1.4}
-.form-details summary:focus-visible,.category-option:focus-within{outline:3px solid #174f90;outline-offset:2px}
-.category-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;padding:4px 0 12px}
-.category-option{display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px;line-height:1.4}
-.category-option input{flex:none;width:20px;height:20px;margin:0}
+#reportForm .form{grid-template-columns:repeat(2,minmax(0,1fr))}
+#reportForm .field{min-width:0}
+#reportForm .field label{font-size:16px;line-height:1.5;color:var(--ink)}
+#reportForm .req{display:inline-block;font-size:14px;white-space:nowrap}
+#reportForm .field input,#reportForm .field select,#reportForm .field textarea{min-height:48px;font-size:16px;line-height:1.5}
+#reportForm .field.error select{border-color:var(--red);background:#fffafa}
+#reportForm .err{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+#reportForm :is(input,select,textarea,button):focus-visible{outline:3px solid #174f90;outline-offset:2px}
+#reportForm .actions .btn{min-height:48px;font-size:16px}
 .notice{font-size:14px;line-height:1.5;color:#46576b}
 @media(max-width:560px){
   body{min-width:320px}
@@ -43,7 +46,7 @@ html{-webkit-text-size-adjust:100%}
   .voice-steps{grid-template-columns:1fr;gap:6px}
   .voice-steps li{padding:8px 12px}
   .voice-line{grid-template-columns:1fr 1fr}
-  .category-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #reportForm .form{grid-template-columns:1fr}
   .btn{min-height:48px;padding:12px 10px;font-size:14px;touch-action:manipulation}
   .field input,.field select,.field textarea{font-size:16px;min-height:48px}
   .field textarea{min-height:140px}
@@ -56,48 +59,32 @@ html{-webkit-text-size-adjust:100%}
 <main class="wrap">
 <header class="top"><h1>推進部システム入力フォーム</h1><p>必要な情報をまとめて話し、文字を確認してから各欄へ入力できます。</p><span class="pill">試験版・音声入力対応</span></header>
 <section class="card">
-<div class="voice"><h2>まとめて話してフォームに入力</h2><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「報告者は山田。会社名はサンプル建設株式会社。案件種別は請負。相談内容は屋根の点検について相談された。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></div>
+<div class="voice"><h2>まとめて話してフォームに入力</h2><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「案件名は屋根点検。案件種別は請負業務／点検。実施日・期限は10月末。売上げ見込みは未定。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></div>
 <form id="reportForm" novalidate>
 <div class="form">
-<div class="field" data-field="reporterName"><label for="reporterName">報告者（氏名）<span class="req">必須</span></label><input id="reporterName" maxlength="120" autocomplete="name" placeholder="例：山田 太郎"><span class="err"></span></div>
-<div class="field" data-field="reporterDepartment"><label for="reporterDepartment">部署名<span class="hint">所属部署</span></label><input id="reporterDepartment" maxlength="120" placeholder="例：営業部"><span class="err"></span></div>
-<div class="field" data-field="orgName"><label for="orgName">会社名・顧客名<span class="req">必須</span></label><input id="orgName" maxlength="120" placeholder="例：サンプル建設株式会社"><span class="err"></span></div>
-<div class="field" data-field="discoveredOn"><label for="discoveredOn">案件を知った日<span class="hint">受付日とは別・任意</span></label><input id="discoveredOn" type="date"><span class="err"></span></div>
-<div class="field full"><label for="caseKind">案件種別</label><select id="caseKind"><option value="">未分類</option><option>講習</option><option>請負</option><option>打ち合わせ</option><option>問い合わせ</option><option>その他</option></select><small>すぐに売上につながらない訪問・相談も登録できます。</small></div>
-<details class="form-details"><summary>相談分野</summary><div class="category-options">
-<label class="category-option"><input type="checkbox" name="categories" value="二等">二等</label><label class="category-option"><input type="checkbox" name="categories" value="一等">一等</label><label class="category-option"><input type="checkbox" name="categories" value="限定解除">限定解除</label><label class="category-option"><input type="checkbox" name="categories" value="更新">更新</label><label class="category-option"><input type="checkbox" name="categories" value="農業講習">農業講習</label><label class="category-option"><input type="checkbox" name="categories" value="その他講習">その他講習</label>
-<label class="category-option"><input type="checkbox" name="categories" value="機体">機体</label><label class="category-option"><input type="checkbox" name="categories" value="部品/周辺機器">部品/周辺機器</label><label class="category-option"><input type="checkbox" name="categories" value="メンテナンス">メンテナンス</label><label class="category-option"><input type="checkbox" name="categories" value="年次点検">年次点検</label><label class="category-option"><input type="checkbox" name="categories" value="保険">保険</label>
-<label class="category-option"><input type="checkbox" name="categories" value="測量">測量</label><label class="category-option"><input type="checkbox" name="categories" value="レーザー">レーザー</label><label class="category-option"><input type="checkbox" name="categories" value="点群/3D">点群/3D</label><label class="category-option"><input type="checkbox" name="categories" value="空撮">空撮</label><label class="category-option"><input type="checkbox" name="categories" value="点検">点検</label><label class="category-option"><input type="checkbox" name="categories" value="農業">農業</label>
-<label class="category-option"><input type="checkbox" name="categories" value="鳥獣/熊">鳥獣/熊</label><label class="category-option"><input type="checkbox" name="categories" value="物流">物流</label><label class="category-option"><input type="checkbox" name="categories" value="実証">実証</label><label class="category-option"><input type="checkbox" name="categories" value="イベント">イベント</label><label class="category-option"><input type="checkbox" name="categories" value="講演/説明会">講演/説明会</label><label class="category-option"><input type="checkbox" name="categories" value="その他">その他</label>
-</div></details>
-<div class="field" data-field="channel"><label for="channel">発生経路</label><select id="channel"><option>問い合わせ</option><option>紹介</option><option>既存顧客</option><option>営業活動</option><option>不明</option><option>受講生</option><option>社員の人脈</option><option>電話問い合わせ</option><option>HP問い合わせ</option><option>イベント</option><option>学校</option><option>協会</option><option>自治体</option><option>協力会社</option><option>その他</option></select><span class="err"></span></div>
-<div class="field" data-field="referrerName"><label for="referrerName">紹介者名<span class="hint">紹介の場合のみ</span></label><input id="referrerName" maxlength="120" placeholder="分からなければ空欄"><span class="err"></span></div>
-<div class="field" data-field="referrerRelationship"><label for="referrerRelationship">紹介者との関係</label><input id="referrerRelationship" maxlength="200" placeholder="例：取引先、社員の知人"><span class="err"></span></div>
-<div class="field" data-field="desiredTime"><label for="desiredTime">希望時期<span class="hint">分かる範囲で可</span></label><input id="desiredTime" maxlength="60" placeholder="例：9月中／未定"><span class="err"></span></div>
-<div class="field" data-field="urgency"><label for="urgency">緊急度</label><select id="urgency"><option>通常</option><option>高</option><option>至急</option></select><span class="err"></span></div>
-<div class="field" data-field="contactInfo"><label for="contactInfo">先方担当者<span class="hint">部署・役職・氏名・連絡先</span></label><input id="contactInfo" maxlength="200" placeholder="例：営業部長 佐藤様／電話番号"><span class="err"></span></div>
-<div class="field" data-field="budgetStatus"><label for="budgetStatus">先方予算の把握状況</label><select id="budgetStatus"><option>未確認</option><option>不明</option><option>把握している</option></select><span class="err"></span></div>
-<div class="field" data-field="budget"><label for="budget">想定予算<span class="hint">分かる範囲で可</span></label><input id="budget" maxlength="200" placeholder="例：先方から約300万円と聞いた"><span class="err"></span></div>
-<div class="field" data-field="conversationTrigger"><label for="conversationTrigger">会話のきっかけ</label><textarea id="conversationTrigger" maxlength="600" placeholder="例：定期訪問中に屋根の破損について相談された"></textarea><span class="err"></span></div>
-<div class="field" data-field="summary"><label for="summary">概要</label><textarea id="summary" maxlength="600" placeholder="会話・相談の要点を短く記録"></textarea><span class="err"></span></div>
-<div class="field" data-field="customerObjective"><label for="customerObjective">顧客の目的・課題<span class="hint">顧客の発言</span></label><textarea id="customerObjective" maxlength="2000" placeholder="実現したいこと、困っていること"></textarea><span class="err"></span></div>
-<div class="field" data-field="customerNeedsReaction"><label for="customerNeedsReaction">相手の要望・反応</label><textarea id="customerNeedsReaction" maxlength="600" placeholder="例：早めに実施可否と概算を知りたい"></textarea><span class="err"></span></div>
-<div class="field" data-field="ourResponseProposal"><label for="ourResponseProposal">こちらの返答・提案</label><textarea id="ourResponseProposal" maxlength="600" placeholder="例：条件確認後に実施方法と概算を案内すると回答"></textarea><span class="err"></span></div>
-<div class="field" data-field="reporterNotes"><label for="reporterNotes">報告者の所感・注意点<span class="hint">顧客の発言と区別</span></label><textarea id="reporterNotes" maxlength="2000" placeholder="例：現地の確認が必要だと思う"></textarea><span class="err"></span></div>
+<div class="field" data-field="reporterName"><label for="reporterName">報告者(氏名)<span class="req">必須</span></label><select id="reporterName" required aria-describedby="reporterName-error"><option value="">選択してください</option><option>小田</option><option>横山</option><option>斉藤</option><option>高木</option><option>渋谷</option></select><span class="err" id="reporterName-error"></span></div>
+<div class="field" data-field="reporterDepartment"><label for="reporterDepartment">部署名<span class="req">必須</span></label><select id="reporterDepartment" required aria-describedby="reporterDepartment-error"><option value="">選択してください</option><option>管理部</option><option>推進部</option><option>技術部</option><option>運営部</option></select><span class="err" id="reporterDepartment-error"></span></div>
+<div class="field full" data-field="caseTitle"><label for="caseTitle">案件名<span class="req">必須</span></label><input id="caseTitle" maxlength="120" required aria-describedby="caseTitle-error"><span class="err" id="caseTitle-error"></span></div>
+<div class="field full" data-field="caseKind"><label for="caseKind">案件種別<span class="req">必須</span></label><select id="caseKind" required aria-describedby="caseKind-error"><option value="">選択してください</option><option>講習</option><option>機体販売</option><option>請負業務／測量</option><option>請負業務／点検</option><option>請負業務／防除</option><option>請負業務／調査</option><option>学校</option><option>イベント</option><option>実証実験</option><option>打ち合わせ・会議</option><option>機体点検・整備</option><option>その他</option></select><span class="err" id="caseKind-error"></span></div>
+<div class="field full" data-field="orgName"><label for="orgName">案件先会社名(正式名称)<span class="req">必須</span></label><input id="orgName" maxlength="120" required aria-describedby="orgName-error" placeholder="例：株式会社サンプル"><span class="err" id="orgName-error"></span></div>
+<div class="field full" data-field="contactPerson"><label for="contactPerson">案件先担当者(役職も分かれば記載)<span class="req">必須</span></label><input id="contactPerson" maxlength="200" required aria-describedby="contactPerson-error" placeholder="部署・役職・氏名"><span class="err" id="contactPerson-error"></span></div>
+<div class="field full" data-field="contactDetails"><label for="contactDetails">案件先担当者　連絡先(番号・メアド)<span class="req">必須</span></label><input id="contactDetails" maxlength="200" required aria-describedby="contactDetails-error" placeholder="電話番号またはメールアドレス"><span class="err" id="contactDetails-error"></span></div>
+<div class="field" data-field="desiredTime"><label for="desiredTime">実施日・期限<span class="req">必須</span></label><input id="desiredTime" maxlength="60" required aria-describedby="desiredTime-error" placeholder="例：10月末／未定"><span class="err" id="desiredTime-error"></span></div>
+<div class="field" data-field="revenueEstimate"><label for="revenueEstimate">売上げ見込み<span class="req">必須</span></label><input id="revenueEstimate" maxlength="200" required aria-describedby="revenueEstimate-error" placeholder="例：30万円／未定"><span class="err" id="revenueEstimate-error"></span></div>
+<div class="field full" data-field="reporterNotes"><label for="reporterNotes">備考・共有事項</label><textarea id="reporterNotes" maxlength="2000" aria-describedby="reporterNotes-error"></textarea><span class="err" id="reporterNotes-error"></span></div>
 </div>
 <div class="rules"><strong>登録後の流れ</strong><ul><li>送信内容は推進部の案件受付に届きます。</li><li>確認事項がある場合は、案件内で報告者とやり取りします。</li><li>受付だけでは案件・顧客・売上を確定しません。</li></ul></div>
 <div class="actions"><button type="button" class="btn" id="clearBtn">入力をクリア</button><button type="submit" class="btn green" id="submitBtn">内容を確認して報告</button></div>
 </form><div class="result" id="result" role="alert"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：案件管理・受付確認待ち</p></div>
 </section><p class="footer">送信後は案件管理の「受付」が開き、確認から結果・営業活用まで同じ案件で管理します</p>
 </main>
-<script src="./voice-parser.js?v=20261014-contact-budget"></script>
+<script src="./report-form.js?v=20261015-minimal"></script>
+<script src="./voice-parser.js?v=20261015-minimal"></script>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus"),FORM_TRANSFER_PREFIX='cdp_form_intake_transfer_v2:';
 let recognition=null,listening=false,voiceBase='',voiceWanted=false,voiceRetryTimer=null,voiceRetryDelay=300,voiceEndMessage='';
-const manuallyChanged=new Set(),voiceFilled=new Set(),manualCategories=new Set(),voiceCategories=new Set(),transcript=$("voiceTranscript");
+const manuallyChanged=new Set(),voiceFilled=new Set(),transcript=$("voiceTranscript");
 form.querySelectorAll('input,select,textarea').forEach(el=>{if(!el.id)return;el.addEventListener('input',()=>manuallyChanged.add(el.id));el.addEventListener('change',()=>manuallyChanged.add(el.id))});
-const categoryInputs=Array.from(form.querySelectorAll('input[name="categories"]'));
-categoryInputs.forEach(el=>el.addEventListener('change',()=>{manualCategories.add(el.value);voiceCategories.delete(el.value)}));
 function setStatus(t){status.textContent=t}
 function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
 function clearVoiceRetry(){if(voiceRetryTimer!==null){clearTimeout(voiceRetryTimer);voiceRetryTimer=null}}
@@ -167,25 +154,14 @@ function startVoice(){
 }
 function applyTranscript(){
   if(listening){setStatus('話し終えてから振り分けてください。');return}
-  if(!window.CdpVoiceParser){setStatus('振り分け機能を読み込めませんでした。ページを再読み込みしてください。');return}
+  if(!window.CdpVoiceParser||!window.CdpReportForm){setStatus('振り分け機能を読み込めませんでした。ページを再読み込みしてください。');return}
   const parsed=CdpVoiceParser.parseTranscript(transcript.value),filled=[],preserved=[],issues=parsed.issues.slice();
   Object.entries(parsed.values).forEach(([key,value])=>{
-    if(key==='categories'){
-      const selected=new Set(value);let applied=false,kept=false;
-      categoryInputs.forEach(el=>{
-        const wanted=selected.has(el.value);
-        if(manualCategories.has(el.value)||(el.checked&&!voiceCategories.has(el.value))){if(el.checked!==wanted)kept=true;return}
-        el.checked=wanted;
-        if(wanted){voiceCategories.add(el.value);applied=true}else voiceCategories.delete(el.value);
-      });
-      if(applied)filled.push(CdpVoiceParser.fieldNames[key]);
-      if(kept)preserved.push(CdpVoiceParser.fieldNames[key]);
-      return;
-    }
-    const el=$(key);if(!el)return;
+    const field=CdpReportForm.fields.find(item=>item.key===key),el=field&&$(key);if(!el){issues.push((CdpVoiceParser.fieldNames[key]||key)+'は現在の入力項目にありません。文字起こしを確認してください。');return}
     const decision=CdpVoiceParser.updateDecision({manuallyChanged:manuallyChanged.has(key),existing:el.tagName==='SELECT'?'':el.value.trim(),voiceFilled:voiceFilled.has(key),maxLength:el.maxLength},value);
     if(decision==='preserve'){preserved.push(CdpVoiceParser.fieldNames[key]);return}
     if(decision==='too-long'){issues.push(CdpVoiceParser.fieldNames[key]+'が長いため、短くしてから入力してください。');return}
+    if(field.choices&&!field.choices.includes(value)){issues.push(field.label+'は表示された選択肢から選んでください。');return}
     el.value=value;voiceFilled.add(key);filled.push(CdpVoiceParser.fieldNames[key]);
   });
   if(parsed.unassigned)issues.push('項目を判断できない文は文字起こし欄に残っています。');
@@ -194,18 +170,15 @@ function applyTranscript(){
     (issues.length?' 要確認：'+issues.join(' '):' 各欄を確認してから報告してください。');
   setStatus('振り分けが終わりました。各欄を確認・修正してから報告してください。');
 }
-function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');const error=x.querySelector('.err');if(error)error.textContent=''})}
+function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');const control=x.querySelector('input,select,textarea');if(control)control.removeAttribute('aria-invalid');const error=x.querySelector('.err');if(error)error.textContent=''})}
 function requestId(){return window.crypto&&window.crypto.randomUUID?'external-'+window.crypto.randomUUID():'external-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e9).toString(36)}
 function submittedAt(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
 form.addEventListener('submit',e=>{
-  e.preventDefault();clearErrors();let ok=true;
-  const reporterName=$('reporterName').value.trim(),orgName=$('orgName').value.trim(),summary=$('summary').value.trim();
-  if(!reporterName){document.querySelector('[data-field="reporterName"]').classList.add('error');document.querySelector('[data-field="reporterName"] .err').textContent='報告者の氏名を入力してください。';ok=false}
-  if(!orgName){document.querySelector('[data-field="orgName"]').classList.add('error');document.querySelector('[data-field="orgName"] .err').textContent='会社名・顧客名を入力してください。';ok=false}
-  if(summary&&summary.length<5){document.querySelector('[data-field="summary"]').classList.add('error');document.querySelector('[data-field="summary"] .err').textContent='概要を5文字以上で入力してください。';ok=false}
-  const discoveredOn=$('discoveredOn').value;
-  if(discoveredOn&&discoveredOn>submittedAt().slice(0,10)){document.querySelector('[data-field="discoveredOn"]').classList.add('error');document.querySelector('[data-field="discoveredOn"] .err').textContent='案件を知った日は今日以前にしてください。';ok=false}
-  if(!ok)return;
+  e.preventDefault();clearErrors();
+  if(!window.CdpReportForm){setStatus('入力確認機能を読み込めませんでした。再読み込みしてください。未送信です。');return}
+  const checked=CdpReportForm.validate(Object.fromEntries(CdpReportForm.fields.map(field=>[field.key,$(field.key).value])));
+  Object.entries(checked.errors).forEach(([key,message])=>{const box=document.querySelector('[data-field="'+key+'"]');box.classList.add('error');box.querySelector('.err').textContent=message;$(key).setAttribute('aria-invalid','true')});
+  if(!checked.valid){$(Object.keys(checked.errors)[0]).focus();return}
   if(location.origin!=='https://ob198-cpu.github.io'){
     const result=$('result');result.classList.add('show','error');
     result.querySelector('h2').textContent='この試作画面からは登録できません';
@@ -213,7 +186,7 @@ form.addEventListener('submit',e=>{
     setStatus('未送信です。入力内容を保持しています。');
     return;
   }
-  const envelope={version:2,requestId:requestId(),submittedAt:submittedAt(),payload:{reporterName,reporterDepartment:$('reporterDepartment').value.trim(),orgName,caseKind:$('caseKind').value,discoveredOn,channel:$('channel').value,referrerName:$('referrerName').value.trim(),referrerRelationship:$('referrerRelationship').value.trim(),categories:Array.from(form.querySelectorAll('input[name="categories"]:checked'),el=>el.value),desiredTime:$('desiredTime').value.trim(),urgency:$('urgency').value,contactInfo:$('contactInfo').value.trim(),budgetKnown:$('budgetStatus').value,budgetAmount:$('budget').value.trim(),conversationTrigger:$('conversationTrigger').value.trim(),summary,customerObjective:$('customerObjective').value.trim(),customerNeedsReaction:$('customerNeedsReaction').value.trim(),ourResponseProposal:$('ourResponseProposal').value.trim(),reporterNotes:$('reporterNotes').value.trim()}};
+  const envelope={version:2,requestId:requestId(),submittedAt:submittedAt(),payload:{formSchema:CdpReportForm.schema,...checked.values}};
   const isLocalOutput=decodeURIComponent(location.pathname).includes('CDP北海道_案件発生報告フォーム_音声対応');
   const targetPath=isLocalOutput?'../CDP北海道_顧客案件営業管理システム_Ver1.0_実行版/index.html':'../index.html';
   const target=new URL(targetPath,location.href),serialized=JSON.stringify(envelope),transferKey=FORM_TRANSFER_PREFIX+envelope.requestId;
@@ -226,6 +199,6 @@ $('voiceStart').addEventListener('click',startVoice);
 $('voiceStop').addEventListener('click',stopVoice);
 $('voiceApply').addEventListener('click',applyTranscript);
 transcript.addEventListener('input',()=>{$('voiceApply').disabled=listening||!transcript.value.trim()});
-$('clearBtn').addEventListener('click',()=>{voiceWanted=false;clearVoiceRetry();if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();transcript.value='';manuallyChanged.clear();voiceFilled.clear();manualCategories.clear();voiceCategories.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
+$('clearBtn').addEventListener('click',()=>{voiceWanted=false;clearVoiceRetry();if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();transcript.value='';manuallyChanged.clear();voiceFilled.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
 </script>
 </body></html>

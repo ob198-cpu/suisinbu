@@ -210,40 +210,41 @@ test('補正見出しでも否定や複数の選択値を勝手に確定しな�
     assert.equal(Object.hasOwn(parseTranscript(`報告者 試験担当。会社名 架空株式会社。案件種類 ${value}。`).values, 'caseKind'), false);
 });
 
-test('実際の反映ボタンの処理で全欄に入力し、原文・手入力を保持する', () => {
+test('実際の反映処理は現行10項目だけを入力し、原文・手入力と選択肢を保護する', () => {
   for (const sample of [transcript, latestTranscript]) {
   const fs = require('node:fs');
   const path = require('node:path');
   const vm = require('node:vm');
   const parser = require('./form/voice-parser.js');
+  const contract = require('./form/report-form.js');
   const html = fs.readFileSync(path.join(__dirname, 'form', 'index.html'), 'utf8');
   const script = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(Boolean);
-  const ids = ['reportForm', 'voiceStatus', 'voiceStart', 'voiceStop', 'voiceTranscript', 'voiceApply', 'voiceResult', 'clearBtn', ...Object.keys(parser.fieldNames)];
+  const ids = ['reportForm', 'voiceStatus', 'voiceStart', 'voiceStop', 'voiceTranscript', 'voiceApply', 'voiceResult', 'clearBtn', ...contract.fields.map(field => field.key)];
   const elements = Object.fromEntries(ids.map(id => [id, {
-    id, tagName: ['caseKind','channel','urgency','budgetStatus'].includes(id) ? 'SELECT' : 'INPUT',
+    id, tagName: ['reporterName','reporterDepartment','caseKind'].includes(id) ? 'SELECT' : 'INPUT',
     value: '', textContent: '', maxLength: -1, listeners: {},
     addEventListener(type, handler) { this.listeners[type] = handler; }
   }]));
-  elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? Object.keys(parser.fieldNames).map(id => elements[id]) : [];
-  const context = vm.createContext({ document: { getElementById: id => elements[id] }, window: { CdpVoiceParser: parser }, CdpVoiceParser: parser });
+  elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? contract.fields.map(field => elements[field.key]) : [];
+  const context = vm.createContext({ document: { getElementById: id => elements[id] }, window: { CdpVoiceParser: parser, CdpReportForm: contract }, CdpVoiceParser: parser, CdpReportForm: contract });
   vm.runInContext(script, context);
   elements.voiceTranscript.value = sample;
   elements.voiceApply.listeners.click();
   const expected = sample === transcript
-    ? {reporterName:'試験担当',reporterDepartment:'営業部',orgName:'架空 建設会社',caseKind:'請負',channel:'学校',desiredTime:'9月',urgency:'高'}
-    : {reporterName:'試験担当',reporterDepartment:'営業部',orgName:'',caseKind:'講習',channel:'自治体',referrerRelationship:'取引先',discoveredOn:parseTranscript('案件を知った日は今日。').values.discoveredOn};
+    ? {reporterName:'',reporterDepartment:'',orgName:'架空 建設会社',caseKind:'',desiredTime:'9月'}
+    : {reporterName:'',reporterDepartment:'',orgName:'',caseKind:'講習'};
   for (const [id, value] of Object.entries(expected))
     assert.equal(elements[id].value, value, id);
   assert.equal(elements.voiceTranscript.value, sample);
   assert.match(elements.voiceResult.textContent, sample === transcript ? /死亡時期.*希望時期/ : /編集.*報告者/);
-  if (sample === latestTranscript) assert.equal(elements.summary.value, '');
+  assert.equal(elements.summary, undefined, '削除された概要欄を復活させない');
   elements.orgName.value = '手入力した架空会社';
   elements.orgName.listeners.input();
-  elements.urgency.value = '至急';
-  elements.urgency.listeners.change();
+  elements.caseKind.value = 'その他';
+  elements.caseKind.listeners.change();
   elements.voiceApply.listeners.click();
   assert.equal(elements.orgName.value, '手入力した架空会社');
-  assert.equal(elements.urgency.value, '至急');
+  assert.equal(elements.caseKind.value, 'その他');
   assert.equal(elements.voiceTranscript.value, sample);
   }
 });

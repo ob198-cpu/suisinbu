@@ -7,17 +7,21 @@
   'use strict';
 
   var fields = [
-    { key: 'reporterName', name: '報告者', aliases: ['報告者（氏名）', '報告者の氏名', '報告者名', '報告者'] },
+    { key: 'reporterName', name: '報告者', aliases: ['報告者（氏名）', '報告者(氏名)', '報告者の氏名', '報告者名', '報告者'] },
     { key: 'reporterDepartment', name: '所属部署', aliases: ['所属部署', '部署名'] },
-    { key: 'orgName', name: '会社名', aliases: ['会社名・顧客名', '会社名', '顧客名'] },
-    { key: 'caseKind', name: '案件種別', aliases: ['案件種別', '種別'], choices: ['講習', '請負', '打ち合わせ', '問い合わせ', 'その他'] },
+    { key: 'orgName', name: '会社名', aliases: ['案件先会社名(正式名称)', '案件先会社名（正式名称）', '案件先会社名', '会社名・顧客名', '会社名', '顧客名'] },
+    { key: 'caseTitle', name: '案件名', aliases: ['案件名'] },
+    { key: 'caseKind', name: '案件種別', aliases: ['案件種別', '種別'], choices: ['講習', '機体販売', '請負業務／測量', '請負業務／点検', '請負業務／防除', '請負業務／調査', '学校', 'イベント', '実証実験', '打ち合わせ・会議', '機体点検・整備', 'その他', '請負', '打ち合わせ', '問い合わせ'] },
     { key: 'discoveredOn', name: '案件を知った日', aliases: ['案件を知った日', '案件発生日'], date: true },
     { key: 'channel', name: '発生経路', aliases: ['発生経路', '経路'], choices: ['問い合わせ', '紹介', '既存顧客', '営業活動', '不明', '受講生', '社員の人脈', '電話問い合わせ', 'HP問い合わせ', 'イベント', '学校', '協会', '自治体', '協力会社', 'その他'] },
     { key: 'referrerName', name: '紹介者名', aliases: ['紹介者名', '紹介者の名前'] },
     { key: 'referrerRelationship', name: '紹介者との関係', aliases: ['紹介者との関係', '紹介者とのつながり'] },
-    { key: 'desiredTime', name: '希望時期', aliases: ['希望時期'] },
+    { key: 'desiredTime', name: '希望時期', aliases: ['実施日・期限', '実施日と期限', '実施日', '期限', '希望時期'] },
     { key: 'urgency', name: '緊急度', aliases: ['緊急度'], choices: ['通常', '高', '至急'] },
     { key: 'contactInfo', name: '先方担当者', aliases: ['先方の担当者', '先方担当者', '相手の担当者'] },
+    { key: 'contactPerson', name: '案件先担当者', aliases: ['案件先担当者(役職も分かれば記載)', '案件先担当者（役職も分かれば記載）', '案件先担当者'] },
+    { key: 'contactDetails', name: '案件先担当者の連絡先', aliases: ['案件先担当者連絡先(番号・メアド)', '案件先担当者連絡先（番号・メアド）', '案件先担当者の連絡先', '案件先担当者連絡先', '担当者の連絡先', '連絡先(番号・メアド)', '連絡先（番号・メアド）', '連絡先'] },
+    { key: 'revenueEstimate', name: '売上げ見込み', aliases: ['売上げ見込み', '売上見込み', '売上げ見込', '売上見込'] },
     { key: 'budgetStatus', name: '予算の把握状況', aliases: ['先方予算の把握状況', '予算の把握状況', '予算確認状況', '予算状況', '先方予算', '先方の予算'], choices: ['未確認', '不明', '把握している'] },
     { key: 'budget', name: '想定予算', aliases: ['予算に関するメモ', '想定予算額', '想定予算', '予算額', '予算'] },
     { key: 'categories', name: '相談分野', aliases: ['相談分野'], multipleChoices: ['二等', '一等', '限定解除', '更新', '農業講習', 'その他講習', '機体', '部品/周辺機器', 'メンテナンス', '年次点検', '保険', '測量', 'レーザー', '点群/3D', '空撮', '点検', '農業', '鳥獣/熊', '物流', '実証', 'イベント', '講演/説明会', 'その他'] },
@@ -26,14 +30,14 @@
     { key: 'customerObjective', name: '顧客の目的・課題', aliases: ['顧客の目的・課題', 'お客様の目的・課題', '顧客の目的', '顧客の課題'], multiline: true },
     { key: 'customerNeedsReaction', name: '相手の要望・反応', aliases: ['相手の要望・反応', '相手の要望と反応', '相手の要望', '先方の要望', '相手の反応'], multiline: true },
     { key: 'ourResponseProposal', name: 'こちらの返答・提案', aliases: ['こちらの返答・提案', 'こちらの返答と提案', 'こちらの返答', 'こちらの提案'], multiline: true },
-    { key: 'reporterNotes', name: '報告者の所感・注意点', aliases: ['報告者の所感・注意点', '報告者の所感', '注意点'], multiline: true }
+    { key: 'reporterNotes', name: '報告者の所感・注意点', aliases: ['備考・共有事項', '備考と共有事項', '共有事項', '備考', '報告者の所感・注意点', '報告者の所感', '注意点'], multiline: true }
   ];
   var aliasEntries = fields.flatMap(function (field) {
     return field.aliases.map(function (alias) { return { alias: alias, field: field }; });
   }).sort(function (a, b) { return b.alias.length - a.alias.length; });
   // この3項目だけ、認識時に見出しの途中へ入る空白を許容する。値や原文の空白は削除しない。
   function aliasPattern(entry) {
-    var parts = ['contactInfo', 'budgetStatus', 'budget'].includes(entry.field.key) ? Array.from(entry.alias) : [entry.alias];
+    var parts = ['contactInfo', 'contactDetails', 'budgetStatus', 'budget'].includes(entry.field.key) ? Array.from(entry.alias) : [entry.alias];
     return parts.map(function (part) { return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[ \\t　]*');
   }
 
@@ -195,6 +199,7 @@
   function positiveChoice(value, choices, fieldKey) {
     var normalized = clean(value).replace(/[\s　]/g, '').replace(/(?:でお願いします|を選びます|にします|でした|です)$/, '');
     if (fieldKey === 'urgency' && normalized === '高め') normalized = '高';
+    if (fieldKey === 'caseKind') normalized = normalized.replace(/^請負業務(?:／|\/|の)?(測量|点検|防除|調査)$/, '請負業務／$1');
     return choices.indexOf(normalized) >= 0 ? normalized : '';
   }
 
