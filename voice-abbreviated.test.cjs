@@ -6,6 +6,25 @@ const { parseTranscript } = require('./form/voice-parser.js');
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
 const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
 
+test('発話全体の9項目を部署4種類と見出し内空白ごとに分離し、未発話の備考は補わない', () => {
+  for(const reporterDepartment of ['管理部','推進部','技術部','運営部']) for(const space of [' ','　',' \t ']) {
+    const result=parseTranscript(`報告者${space}試験担当${space}${reporterDepartment}。案件${space}サンプル。案件種別${space}学校。案件先${space}会社。架空サンプル。案件先${space}担当者${space}取引先担当A。案件先${space}連絡先${space}sample@example.invalid。実施日${space}10月中。売上30万`);
+    assert.deepEqual(result.values,{reporterName:'試験担当',reporterDepartment,caseTitle:'サンプル',caseKind:'学校',orgName:'架空サンプル',contactPerson:'取引先担当A',contactDetails:'sample@example.invalid',desiredTime:'10月中',revenueEstimate:'30万'});
+    assert.equal(result.unassigned,'');assert.deepEqual(result.issues,[]);
+  }
+});
+
+test('短縮案件や部署分離で会社名・自由文・未知氏名を壊さない', () => {
+  for(const name of ['案件 研究株式会社','案件先会社株式会社','株式会社 案件先 会社 サポート','管理部支援株式会社']) {
+    const result=parseTranscript(`報告者 試験担当 管理部。会社名。。${name}。案件種別学校。実施日今日。売上30万`);
+    assert.equal(result.values.orgName,name);assert.equal(result.values.caseTitle,undefined);
+  }
+  const body='報告者 試験担当 管理部。案件 サンプル。案件先 会社。架空サンプル。案件先 担当者 取引先担当A';
+  for(const [heading,key] of [['相談内容は','summary'],['備考は','reporterNotes']]) assert.deepEqual(parseTranscript(heading+body+'。').values,{[key]:body});
+  const unknown=parseTranscript('報告者 未登録担当 管理部。案件 サンプル。案件種別学校。実施日今日');assert.equal(unknown.values.reporterName,'未登録担当');
+  for(const phrase of ['試験担当 管理部 技術部','試験担当 管理部 管理部','試験担当　管理部　技術部','試験担当 管理部と技術部']) {const result=parseTranscript('報告者 '+phrase+'。案件 サンプル。案件種別学校。案件先会社。架空サンプル。実施日今日');assert.equal(result.values.reporterDepartment,undefined,phrase);assert.equal(result.values.reporterName,phrase,phrase);}
+});
+
 test('短縮した売上30万も見込みの原文として反映し、実績・前年・曖昧な金額は混ぜない', () => {
   const result=parseTranscript('試験担当 管理部。案件 サンプル。案件種別 学校。案件先 会社。架空サンプル。案件先 担当者 取引先担当A。案件先 連絡先 sample@example.invalid。実施日 10月中。売上30万');
   assert.equal(result.values.revenueEstimate,'30万');

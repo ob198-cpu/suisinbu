@@ -9,7 +9,7 @@
   var fields = [
     { key: 'reporterName', name: '報告者', aliases: ['報告者（氏名）', '報告者(氏名)', '報告者の氏名', '報告者名', '報告者'] },
     { key: 'reporterDepartment', name: '所属部署', aliases: ['所属部署', '部署名'] },
-    { key: 'orgName', name: '会社名', aliases: ['案件先会社名(正式名称)', '案件先会社名（正式名称）', '案件先会社名', '会社名・顧客名', '会社名', '顧客名'] },
+    { key: 'orgName', name: '会社名', aliases: ['案件先会社名(正式名称)', '案件先会社名（正式名称）', '案件先会社名', '案件先会社', '会社名・顧客名', '会社名', '顧客名'] },
     { key: 'caseTitle', name: '案件名', aliases: ['案件名'] },
     { key: 'caseKind', name: '案件種別', aliases: ['案件種別', '種別'], choices: ['講習', '機体販売', '請負業務／測量', '請負業務／点検', '請負業務／防除', '請負業務／調査', '学校', 'イベント', '実証実験', '打ち合わせ・会議', '機体点検・整備', 'その他', '請負', '打ち合わせ', '問い合わせ'] },
     { key: 'discoveredOn', name: '案件を知った日', aliases: ['案件を知った日', '案件発生日'], date: true },
@@ -20,7 +20,7 @@
     { key: 'urgency', name: '緊急度', aliases: ['緊急度'], choices: ['通常', '高', '至急'] },
     { key: 'contactInfo', name: '先方担当者', aliases: ['先方の担当者', '先方担当者', '相手の担当者'] },
     { key: 'contactPerson', name: '案件先担当者', aliases: ['案件先担当者(役職も分かれば記載)', '案件先担当者（役職も分かれば記載）', '案件先担当者'] },
-    { key: 'contactDetails', name: '案件先担当者の連絡先', aliases: ['案件先担当者連絡先(番号・メアド)', '案件先担当者連絡先（番号・メアド）', '案件先担当者の連絡先', '案件先担当者連絡先', '担当者の連絡先', '連絡先(番号・メアド)', '連絡先（番号・メアド）', '連絡先'] },
+    { key: 'contactDetails', name: '案件先担当者の連絡先', aliases: ['案件先担当者連絡先(番号・メアド)', '案件先担当者連絡先（番号・メアド）', '案件先担当者の連絡先', '案件先担当者連絡先', '案件先連絡先', '担当者の連絡先', '連絡先(番号・メアド)', '連絡先（番号・メアド）', '連絡先'] },
     { key: 'revenueEstimate', name: '売上げ見込み', aliases: ['売り上げ見込み', '売り上げ見込', '売上げ見込み', '売上見込み', '売上げ見込', '売上見込'] },
     { key: 'budgetStatus', name: '予算の把握状況', aliases: ['先方予算の把握状況', '予算の把握状況', '予算確認状況', '予算状況', '先方予算', '先方の予算'], choices: ['未確認', '不明', '把握している'] },
     { key: 'budget', name: '想定予算', aliases: ['予算に関するメモ', '想定予算額', '想定予算', '予算額', '予算'] },
@@ -35,9 +35,9 @@
   var aliasEntries = fields.flatMap(function (field) {
     return field.aliases.map(function (alias) { return { alias: alias, field: field }; });
   }).sort(function (a, b) { return b.alias.length - a.alias.length; });
-  // この3項目だけ、認識時に見出しの途中へ入る空白を許容する。値や原文の空白は削除しない。
+  // 音声認識が見出し内へ入れた空白だけを許容する。値や原文の空白は削除しない。
   function aliasPattern(entry) {
-    var parts = ['contactInfo', 'contactDetails', 'budgetStatus', 'budget'].includes(entry.field.key) ? Array.from(entry.alias) : [entry.alias];
+    var parts = ['orgName', 'contactPerson', 'contactInfo', 'contactDetails', 'budgetStatus', 'budget'].includes(entry.field.key) ? Array.from(entry.alias) : [entry.alias];
     return parts.map(function (part) { return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[ \\t　]*');
   }
 
@@ -85,6 +85,7 @@
     { alias: '担当者', field: fields.find(function (field) { return field.key === 'contactInfo'; }), context: 'form' },
     { alias: '案件先担当', field: fields.find(function (field) { return field.key === 'contactPerson'; }), context: 'clientContact' },
     { alias: '案件先', field: fields.find(function (field) { return field.key === 'orgName'; }), context: 'clientCompany' },
+    { alias: '案件', field: fields.find(function (field) { return field.key === 'caseTitle'; }), context: 'caseTitle' },
     // 現行フォームで金額を明示した短縮見出しだけに限定する。実績や文章からの推定には使わない。
     ...['売り上げ', '売上げ', '売上'].map(function (alias) { return { alias: alias, field: fields.find(function (field) { return field.key === 'revenueEstimate'; }), context: 'revenueAmount' }; }),
     { alias: '希望時間', field: fields.find(function (field) { return field.key === 'desiredTime'; }), context: 'form' },
@@ -186,6 +187,14 @@
           !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ)|(?:します|しました|です|でした)$)/.test(name);
       }
       if (item.context === 'company') return !item.attached;
+      if (item.context === 'caseTitle') {
+        var nextCase = prefix[index + 1], previousCase = prefix[index - 1];
+        var caseValue = clean(source.slice(item.valueStart, nextCase ? nextCase.start : source.length));
+        // 「案件 サンプル」のように見出しが区切られ、後続に別項目がある口述だけを扱う。
+        return !item.attached && nextCase && (!previousCase || clean(source.slice(previousCase.valueStart, item.labelStart))) &&
+          /^[^。！？\n]{1,120}$/.test(caseValue) && !looksLikeField(caseValue) &&
+          !/(?:について|とは|(?:します|しました|です|でした)$)/.test(caseValue);
+      }
       if (item.context === 'clientCompany' || item.context === 'clientContact') {
         var previousClient = prefix[index - 1], nextClient = prefix[index + 1];
         var clientValue = clean(source.slice(item.valueStart, nextClient ? nextClient.start : source.length));
@@ -286,6 +295,21 @@
       if (!Array.isArray(nextKeys)) nextKeys = [nextKeys];
       var boundary = i + 1 < matches.length ? matches[i + 1].start : source.length;
       var segment = source.slice(current.valueStart, boundary);
+      if (current.field.key === 'reporterName') {
+        // 明示された報告者句の末尾にある現行部署だけを分ける。氏名・社名・原文は正規化しない。
+        var reporterSentence = segment.split(/[。！？\n]/)[0];
+        var reporterAndDepartment = reporterSentence.match(/^([\p{L}\p{N}・ \t　]{1,30}?)([ \t　]+)(管理部|推進部|技術部|運営部)[ \t　]*$/u);
+        if (reporterAndDepartment && clean(reporterAndDepartment[1]) &&
+            !/(?:^|[ \t　])(?:管理部|推進部|技術部|運営部)(?=$|[ \t　])/.test(reporterAndDepartment[1]) &&
+            !/(?:について|とは|(?:が|を|と|へ|から|まで)(?:担当|訪問|面談|相談|連絡|確認|取りまとめ|提出|報告|打ち合わせ))/.test(reporterAndDepartment[1])) {
+          var departmentStart = current.valueStart + reporterAndDepartment[1].length;
+          matches.splice(i + 1, 0, {
+            field: fields.find(function (field) { return field.key === 'reporterDepartment'; }),
+            start: departmentStart, valueStart: departmentStart + reporterAndDepartment[2].length
+          });
+          continue;
+        }
+      }
       var nextEntries = aliasEntries.filter(function (entry) { return nextKeys.includes(entry.field.key) && entry.alias.length >= 3; });
       if (current.field.key === 'reporterName') nextEntries.push({
         alias: '部署', field: fields.find(function (field) { return field.key === 'reporterDepartment'; }), abbreviatedDepartment: true
