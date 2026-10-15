@@ -34,6 +34,7 @@ html{-webkit-text-size-adjust:100%}
 #reportForm .err{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
 #reportForm :is(input,select,textarea,button):focus-visible{outline:3px solid #174f90;outline-offset:2px}
 #reportForm .actions .btn{min-height:48px;font-size:16px}
+#reporterNameOtherField:not([hidden]){display:block;margin-top:10px}
 .notice{font-size:14px;line-height:1.5;color:#46576b}
 @media(max-width:560px){
   body{min-width:320px}
@@ -62,7 +63,7 @@ html{-webkit-text-size-adjust:100%}
 <div class="voice"><h2>まとめて話してフォームに入力</h2><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「案件名は屋根点検。案件種別は請負業務／点検。実施日・期限は10月末。売上げ見込みは未定。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></div>
 <form id="reportForm" novalidate>
 <div class="form">
-<div class="field" data-field="reporterName"><label for="reporterName">報告者(氏名)<span class="req">必須</span></label><select id="reporterName" required aria-describedby="reporterName-error"><option value="">選択してください</option><option>小田</option><option>横山</option><option>斉藤</option><option>高木</option><option>渋谷</option></select><span class="err" id="reporterName-error"></span></div>
+<div class="field" data-field="reporterName"><label for="reporterName">報告者(氏名)<span class="req">必須</span></label><select id="reporterName" required aria-describedby="reporterName-error" aria-controls="reporterNameOtherField" aria-expanded="false"><option value="">選択してください</option><option>小田</option><option>横山</option><option>斉藤</option><option>高木</option><option>渋谷</option><option>その他</option></select><span id="reporterNameOtherField" hidden><label for="reporterNameOther">報告者氏名（その他）<span class="req">必須</span></label><input id="reporterNameOther" maxlength="120" disabled autocomplete="name" aria-describedby="reporterName-error" placeholder="氏名を入力してください"></span><span class="err" id="reporterName-error"></span></div>
 <div class="field" data-field="reporterDepartment"><label for="reporterDepartment">部署名<span class="req">必須</span></label><select id="reporterDepartment" required aria-describedby="reporterDepartment-error"><option value="">選択してください</option><option>管理部</option><option>推進部</option><option>技術部</option><option>運営部</option></select><span class="err" id="reporterDepartment-error"></span></div>
 <div class="field full" data-field="caseTitle"><label for="caseTitle">案件名<span class="req">必須</span></label><input id="caseTitle" maxlength="120" required aria-describedby="caseTitle-error"><span class="err" id="caseTitle-error"></span></div>
 <div class="field full" data-field="caseKind"><label for="caseKind">案件種別<span class="req">必須</span></label><select id="caseKind" required aria-describedby="caseKind-error"><option value="">選択してください</option><option>講習</option><option>機体販売</option><option>請負業務／測量</option><option>請負業務／点検</option><option>請負業務／防除</option><option>請負業務／調査</option><option>学校</option><option>イベント</option><option>実証実験</option><option>打ち合わせ・会議</option><option>機体点検・整備</option><option>その他</option></select><span class="err" id="caseKind-error"></span></div>
@@ -78,13 +79,21 @@ html{-webkit-text-size-adjust:100%}
 </form><div class="result" id="result" role="alert"><h2>報告を受け付けました</h2><p>受付番号：<strong id="receiptNo"></strong>　｜　状態：案件管理・受付確認待ち</p></div>
 </section><p class="footer">送信後は案件管理の「受付」が開き、確認から結果・営業活用まで同じ案件で管理します</p>
 </main>
-<script src="./report-form.js?v=20261015-minimal"></script>
+<script src="./report-form.js?v=20261015-other-reporter"></script>
 <script src="./voice-parser.js?v=20261015-voice-all-fields"></script>
 <script>
 const $=id=>document.getElementById(id),form=$("reportForm"),status=$("voiceStatus"),FORM_TRANSFER_PREFIX='cdp_form_intake_transfer_v2:';
 let recognition=null,listening=false,voiceBase='',voiceWanted=false,voiceRetryTimer=null,voiceRetryDelay=300,voiceEndMessage='';
 const manuallyChanged=new Set(),voiceFilled=new Set(),transcript=$("voiceTranscript");
 form.querySelectorAll('input,select,textarea').forEach(el=>{if(!el.id)return;el.addEventListener('input',()=>manuallyChanged.add(el.id));el.addEventListener('change',()=>manuallyChanged.add(el.id))});
+function syncOtherReporterField(){
+  const active=$('reporterName').value==='その他',input=$('reporterNameOther');
+  $('reporterNameOtherField').hidden=!active;input.disabled=!active;
+  if(active)input.setAttribute('required','');else input.removeAttribute('required');
+  $('reporterName').setAttribute('aria-expanded',String(active));
+}
+$('reporterName').addEventListener('change',syncOtherReporterField);
+syncOtherReporterField();
 function setStatus(t){status.textContent=t}
 function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
 function clearVoiceRetry(){if(voiceRetryTimer!==null){clearTimeout(voiceRetryTimer);voiceRetryTimer=null}}
@@ -158,11 +167,13 @@ function applyTranscript(){
   const parsed=CdpVoiceParser.parseTranscript(transcript.value),filled=[],preserved=[],issues=parsed.issues.slice();
   Object.entries(parsed.values).forEach(([key,value])=>{
     const field=CdpReportForm.fields.find(item=>item.key===key),el=field&&$(key);if(!el){issues.push((CdpVoiceParser.fieldNames[key]||key)+'は現在の入力項目にありません。文字起こしを確認してください。');return}
-    const decision=CdpVoiceParser.updateDecision({manuallyChanged:manuallyChanged.has(key),existing:el.tagName==='SELECT'?'':el.value.trim(),voiceFilled:voiceFilled.has(key),maxLength:el.maxLength},value);
+    const otherReporter=key==='reporterName'&&el.value==='その他',target=otherReporter?$('reporterNameOther'):el,targetKey=otherReporter?'reporterNameOther':key;
+    const decision=CdpVoiceParser.updateDecision({manuallyChanged:manuallyChanged.has(targetKey),existing:target.tagName==='SELECT'?'':target.value.trim(),voiceFilled:voiceFilled.has(targetKey),maxLength:target.maxLength},value);
     if(decision==='preserve'){preserved.push(CdpVoiceParser.fieldNames[key]);return}
     if(decision==='too-long'){issues.push(CdpVoiceParser.fieldNames[key]+'が長いため、短くしてから入力してください。');return}
-    if(field.choices&&!field.choices.includes(value)){issues.push(field.label+'は表示された選択肢から選んでください。');return}
-    el.value=value;voiceFilled.add(key);filled.push(CdpVoiceParser.fieldNames[key]);
+    if(otherReporter&&value==='その他'){issues.push('その他の報告者氏名を確認してください。');return}
+    if(!otherReporter&&field.choices&&!field.choices.includes(value)){issues.push(field.label+'は表示された選択肢から選んでください。'+(key==='reporterName'?'一覧にない氏名は「その他」を選んで記入してください。':''));return}
+    target.value=value;voiceFilled.add(targetKey);if(key==='reporterName')syncOtherReporterField();filled.push(CdpVoiceParser.fieldNames[key]);
   });
   if(parsed.unassigned)issues.push('項目を判断できない文は文字起こし欄に残っています。');
   $('voiceResult').textContent=(filled.length?'入力した項目：'+filled.join('・')+'。':'自動入力できる項目がありませんでした。')+
@@ -170,15 +181,16 @@ function applyTranscript(){
     (issues.length?' 要確認：'+issues.join(' '):' 各欄を確認してから報告してください。');
   setStatus('振り分けが終わりました。各欄を確認・修正してから報告してください。');
 }
-function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');const control=x.querySelector('input,select,textarea');if(control)control.removeAttribute('aria-invalid');const error=x.querySelector('.err');if(error)error.textContent=''})}
+function clearErrors(){document.querySelectorAll('.field').forEach(x=>{x.classList.remove('error');const control=x.querySelector('input,select,textarea');if(control)control.removeAttribute('aria-invalid');const error=x.querySelector('.err');if(error)error.textContent=''});$('reporterNameOther').removeAttribute('aria-invalid')}
 function requestId(){return window.crypto&&window.crypto.randomUUID?'external-'+window.crypto.randomUUID():'external-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e9).toString(36)}
 function submittedAt(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
 form.addEventListener('submit',e=>{
   e.preventDefault();clearErrors();
   if(!window.CdpReportForm){setStatus('入力確認機能を読み込めませんでした。再読み込みしてください。未送信です。');return}
-  const checked=CdpReportForm.validate(Object.fromEntries(CdpReportForm.fields.map(field=>[field.key,$(field.key).value])));
-  Object.entries(checked.errors).forEach(([key,message])=>{const box=document.querySelector('[data-field="'+key+'"]');box.classList.add('error');box.querySelector('.err').textContent=message;$(key).setAttribute('aria-invalid','true')});
-  if(!checked.valid){$(Object.keys(checked.errors)[0]).focus();return}
+  const checked=CdpReportForm.validate({...Object.fromEntries(CdpReportForm.fields.map(field=>[field.key,$(field.key).value])),reporterNameOther:$('reporterNameOther').value});
+  function errorControl(key){return key==='reporterName'&&$('reporterName').value==='その他'?$('reporterNameOther'):$(key)}
+  Object.entries(checked.errors).forEach(([key,message])=>{const box=document.querySelector('[data-field="'+key+'"]');box.classList.add('error');box.querySelector('.err').textContent=message;errorControl(key).setAttribute('aria-invalid','true')});
+  if(!checked.valid){errorControl(Object.keys(checked.errors)[0]).focus();return}
   if(location.origin!=='https://ob198-cpu.github.io'){
     const result=$('result');result.classList.add('show','error');
     result.querySelector('h2').textContent='この試作画面からは登録できません';
@@ -199,6 +211,6 @@ $('voiceStart').addEventListener('click',startVoice);
 $('voiceStop').addEventListener('click',stopVoice);
 $('voiceApply').addEventListener('click',applyTranscript);
 transcript.addEventListener('input',()=>{$('voiceApply').disabled=listening||!transcript.value.trim()});
-$('clearBtn').addEventListener('click',()=>{voiceWanted=false;clearVoiceRetry();if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();transcript.value='';manuallyChanged.clear();voiceFilled.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
+$('clearBtn').addEventListener('click',()=>{voiceWanted=false;clearVoiceRetry();if(recognition){const active=recognition;active.onresult=null;active.onend=null;active.onerror=null;recognition=null;try{active.abort()}catch(e){}}setListening(false);form.reset();syncOtherReporterField();transcript.value='';manuallyChanged.clear();voiceFilled.clear();$('voiceResult').textContent='';$('voiceApply').disabled=true;clearErrors();$('result').classList.remove('show');setStatus('準備完了')});
 </script>
 </body></html>

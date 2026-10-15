@@ -6,6 +6,14 @@ const { parseTranscript } = require('./form/voice-parser.js');
 const transcript = '報告 試験担当。部署名 営業部会社 架空 建設会社。案件種別 請負。案件を知った日 今日。発生経路 学校紹介者名 不明 紹介者との関係 不明。死亡時期。9月。緊急度 高め';
 const latestTranscript = 'ええ編集試験担当部署名営業部。。社架空建設株式会社。。案件種別講習。案件を知った日、今日発生経路。。自治体。。試験紹介者。。紹介書との関係、取引先。';
 
+test('報告者その他の氏名を既存reporterNameへ解決し、空欄・未記入・超過は送らない', () => {
+  const form=require('./form/report-form.js');
+  const sample={reporterName:'その他',reporterDepartment:'管理部',caseTitle:'架空点検',caseKind:'学校',orgName:'架空サンプル',contactPerson:'取引先担当A',contactDetails:'sample@example.invalid',desiredTime:'未定',revenueEstimate:'未定',reporterNotes:''};
+  for(const reporterNameOther of [undefined,'','  ','その他',1,'あ'.repeat(121)]) assert.equal(form.validate({...sample,reporterNameOther}).valid,false);
+  for(const reporterNameOther of [' 架空の報告担当A ','あ'.repeat(120)]) {const result=form.validate({...sample,reporterNameOther});assert.equal(result.valid,true);assert.equal(result.values.reporterName,reporterNameOther.trim());assert.equal(Object.hasOwn(result.values,'reporterNameOther'),false);}
+  assert.equal(form.validate({...sample,reporterName:'小田',reporterNameOther:'隠れた旧入力'}).values.reporterName,'小田');
+});
+
 test('発話全体の9項目を部署4種類と見出し内空白ごとに分離し、未発話の備考は補わない', () => {
   for(const reporterDepartment of ['管理部','推進部','技術部','運営部']) for(const space of [' ','　',' \t ']) {
     const result=parseTranscript(`報告者${space}試験担当${space}${reporterDepartment}。案件${space}サンプル。案件種別${space}学校。案件先${space}会社。架空サンプル。案件先${space}担当者${space}取引先担当A。案件先${space}連絡先${space}sample@example.invalid。実施日${space}10月中。売上30万`);
@@ -269,13 +277,14 @@ test('実際の反映処理は現行10項目だけを入力し、原文・手入
   const contract = require('./form/report-form.js');
   const html = fs.readFileSync(path.join(__dirname, 'form', 'index.html'), 'utf8');
   const script = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(Boolean);
-  const ids = ['reportForm', 'voiceStatus', 'voiceStart', 'voiceStop', 'voiceTranscript', 'voiceApply', 'voiceResult', 'clearBtn', ...contract.fields.map(field => field.key)];
+  const ids = ['reportForm', 'voiceStatus', 'voiceStart', 'voiceStop', 'voiceTranscript', 'voiceApply', 'voiceResult', 'clearBtn', 'reporterNameOther', 'reporterNameOtherField', ...contract.fields.map(field => field.key)];
   const elements = Object.fromEntries(ids.map(id => [id, {
     id, tagName: ['reporterName','reporterDepartment','caseKind'].includes(id) ? 'SELECT' : 'INPUT',
     value: '', textContent: '', maxLength: -1, listeners: {},
+    attributes:{},setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];},
     addEventListener(type, handler) { this.listeners[type] = handler; }
   }]));
-  elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? contract.fields.map(field => elements[field.key]) : [];
+  elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? contract.fields.map(field => elements[field.key]).concat(elements.reporterNameOther) : [];
   const context = vm.createContext({ document: { getElementById: id => elements[id] }, window: { CdpVoiceParser: parser, CdpReportForm: contract }, CdpVoiceParser: parser, CdpReportForm: contract });
   vm.runInContext(script, context);
   elements.voiceTranscript.value = sample;
