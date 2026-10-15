@@ -305,5 +305,16 @@ test('実際の反映処理は現行10項目だけを入力し、原文・手入
   assert.equal(elements.orgName.value, '手入力した架空会社');
   assert.equal(elements.caseKind.value, 'その他');
   assert.equal(elements.voiceTranscript.value, sample);
+  // 報告者の既知選択だけは、手動選択後も明示された音声氏名へ切り替える。
+  elements.reporterName.value = '小田';elements.reporterName.listeners.change();
+  elements.voiceTranscript.value = '報告者 横山 管理部。案件 サンプル。案件種別 学校。';
+  elements.voiceApply.listeners.click();
+  assert.equal(elements.reporterName.value, '横山');
+  assert.equal(elements.caseKind.value, 'その他', '他の手入力済み選択は保護する');
+  assert.equal(elements.orgName.value, '手入力した架空会社');
+  elements.reporterName.value = 'その他';elements.reporterName.listeners.change();
+  elements.reporterNameOther.value = '手入力の架空担当';elements.reporterNameOther.listeners.input();
+  elements.voiceApply.listeners.click();
+  assert.equal(elements.reporterName.value, 'その他');assert.equal(elements.reporterNameOther.value, '手入力の架空担当');
   }
 });

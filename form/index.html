@@ -168,7 +168,9 @@ function applyTranscript(){
   Object.entries(parsed.values).forEach(([key,value])=>{
     const field=CdpReportForm.fields.find(item=>item.key===key),el=field&&$(key);if(!el){issues.push((CdpVoiceParser.fieldNames[key]||key)+'は現在の入力項目にありません。文字起こしを確認してください。');return}
     const otherReporter=key==='reporterName'&&el.value==='その他',target=otherReporter?$('reporterNameOther'):el,targetKey=otherReporter?'reporterNameOther':key;
-    const decision=CdpVoiceParser.updateDecision({manuallyChanged:manuallyChanged.has(targetKey),existing:target.tagName==='SELECT'?'':target.value.trim(),voiceFilled:voiceFilled.has(targetKey),maxLength:target.maxLength},value);
+    // 既知の報告者選択だけは、反映ボタンで明示された氏名へ切り替える。
+    const knownReporterChoice=key==='reporterName'&&!otherReporter&&value!=='その他'&&field.choices.includes(value);
+    const decision=CdpVoiceParser.updateDecision({manuallyChanged:manuallyChanged.has(targetKey)&&!knownReporterChoice,existing:target.tagName==='SELECT'?'':target.value.trim(),voiceFilled:voiceFilled.has(targetKey),maxLength:target.maxLength},value);
     if(decision==='preserve'){preserved.push(CdpVoiceParser.fieldNames[key]);return}
     if(decision==='too-long'){issues.push(CdpVoiceParser.fieldNames[key]+'が長いため、短くしてから入力してください。');return}
     if(otherReporter&&value==='その他'){issues.push('その他の報告者氏名を確認してください。');return}
