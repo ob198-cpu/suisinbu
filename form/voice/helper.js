@@ -191,7 +191,9 @@
     };
     active.onresult = function (event) {
       if (recognizer !== active || disposed || !busy) return;
-      for (var i = event.resultIndex || 0; i < event.results.length; i += 1) {
+      // Rebuild from the browser's current snapshot. Some implementations may
+      // report a stale resultIndex even though an earlier hypothesis changed.
+      for (var i = 0; i < event.results.length; i += 1) {
         recognitionText[i] = event.results[i][0] ? event.results[i][0].transcript : '';
       }
       recognitionText.length = event.results.length;
