@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-7cTpGRUGnsj/V5LbK2+SSjasLvkPIEp9XhGqdH/Y6DU=' 'sha256-JVet7f43qRcLT3/fE3IOiAGbL5gR9M7qL6HXv8F3+Wg='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-02nVbkGFfegux0n23wuVzexOZit1kH1Uc0nJu3zirbs=' 'sha256-JVet7f43qRcLT3/fE3IOiAGbL5gR9M7qL6HXv8F3+Wg='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -818,7 +818,7 @@ html{-webkit-text-size-adjust:100%}
 // existing Apps Script deployment, with its original server validation.
 var Api = (() => {
   const endpoint = 'https://script.google.com/macros/s/AKfycbwQ0eqV3hShMKBp1VXN6BjN-9D1X_zUxdMjsbmuxWzl0fNzV9tcods7k9LfHsaRJUeu/exec';
-  const relayOrigin = 'https://n-b76txz6robbnvdkz2yloxpcrloaldhgs4jyxa4a-0lu-script.googleusercontent.com';
+  let relayOrigin = null;
   const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
   const pending = new Map();
   let relayWindow = null;
@@ -826,14 +826,27 @@ var Api = (() => {
   let connect;
   const ready = new Promise(resolve => { connect = resolve; });
   const failure = () => ({ok:false,error:{code:'EXTERNAL_SERVICE_ERROR',message:'保存先に接続できませんでした。',fieldErrors:{},retryable:true}});
+  function belongsToRelay(source) {
+    // Apps Script wraps the relay in nested cross-origin frames. Verify the
+    // window ancestry as well as the per-load token before trusting its origin.
+    try {
+      for (let depth = 0; source && source !== window && depth < 5; depth++) {
+        if (source === frame.contentWindow) return true;
+        source = source.parent;
+      }
+    } catch (_) { return false; }
+    return false;
+  }
   window.addEventListener('message', event => {
     const message = event.data;
-    if (event.origin !== relayOrigin || !message || message.kind !== 'cdp-form-relay' || message.token !== token) return;
+    if (!/^https:\/\/(?:[a-z0-9-]+-script|script)\.googleusercontent\.com$/.test(event.origin) || !belongsToRelay(event.source) || !message || message.kind !== 'cdp-form-relay' || message.token !== token) return;
+    if (relayOrigin && event.origin !== relayOrigin) return;
     if (relayWindow && event.source !== relayWindow) return;
     if (message.type === 'ready') {
       if (relayWindow) return;
       if (!Array.isArray(message.reporters) || !message.reporters.every(name => typeof name === 'string' && name.length <= 120)) return;
       relayWindow = event.source;
+      relayOrigin = event.origin;
       const field = CdpReportForm.fields.find(field => field.key === 'reporterName');
       field.choices.splice(0, field.choices.length, ...message.reporters);
       const select = document.getElementById('reporterName');
