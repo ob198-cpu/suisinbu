@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-2xl8g9FRYent4nzDJecwzX3z1iyckbF7BNwk+T2IEeA='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-sUNYFrKWpSy8IUwAISxt1j1VhuXI94whJEIkuQ1SkGk='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -961,8 +961,9 @@ function startVoiceSession(continuation) {
     if (recognizer !== active) return;
     const pieces = [];
     for (let i = 0; i < event.results.length; i++) pieces.push(event.results[i][0]?.transcript || '');
-    let spoken = pieces.join('').replace(/報告者(?:[\s、,。]*報告者)+/g, '報告者');
-    if (continuation && /報告者\s*$/.test(original)) spoken = spoken.replace(/^\s*報告者/, '');
+    let spoken = pieces.join('').replace(/(報告者|部署名)(?:[\s、,。]*\1)+/g, '$1');
+    const boundaryLabel = original.match(/(報告者|部署名)\s*$/)?.[1];
+    if (continuation && boundaryLabel) spoken = spoken.replace(new RegExp('^\\s*' + boundaryLabel), '');
     const combined = original + (original && spoken ? '\n' : '') + spoken;
     transcript.value = combined.slice(0, 10000);
     if (combined.length > 10000) finishRecognition(active, '文字起こしが10,000文字に達しました。', true);
@@ -998,7 +999,7 @@ window.addEventListener('pagehide', cancelVoice);
 function applyTranscript(){
   if(listening){setStatus('話し終えてから振り分けてください。');return}
   if(!window.CdpVoiceParser||!window.CdpReportForm){setStatus('振り分け機能を読み込めませんでした。ページを再読み込みしてください。');return}
-  const parsed=CdpVoiceParser.parseTranscript(transcript.value),filled=[],preserved=[],issues=parsed.issues.slice();
+  const parsed=CdpVoiceParser.parseTranscript(transcript.value.replace(/(報告者|部署名)(?:[\s、,。]*\1)+/g,'$1')),filled=[],preserved=[],issues=parsed.issues.slice();
   Object.entries(parsed.values).forEach(([parsedKey,value])=>{const key=parsedKey==='contactInfo'&&!Object.prototype.hasOwnProperty.call(parsed.values,'contactPerson')?'contactPerson':parsedKey;
     const field=CdpReportForm.fields.find(item=>item.key===key),el=field&&$(key);if(!el){issues.push((CdpVoiceParser.fieldNames[key]||key)+'は現在の入力項目にありません。文字起こしを確認してください。');return}
     const otherReporter=key==='reporterName'&&el.value==='その他',target=otherReporter?$('reporterNameOther'):el,targetKey=otherReporter?'reporterNameOther':key;
