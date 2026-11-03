@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-JVet7f43qRcLT3/fE3IOiAGbL5gR9M7qL6HXv8F3+Wg='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-2xl8g9FRYent4nzDJecwzX3z1iyckbF7BNwk+T2IEeA='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -902,11 +902,16 @@ function setStatus(t){status.textContent=t}
 function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
 let recognizer = null;
 let recognitionTimer;
+let restartTimer;
+let keepListening = false;
+let emptyRestarts = 0;
 
 function finishRecognition(active, message, abort) {
   if (recognizer !== active) return;
   recognizer = null;
+  keepListening = false;
   clearTimeout(recognitionTimer);
+  clearTimeout(restartTimer);
   active.onresult = active.onend = active.onerror = null;
   if (abort) { try { active.abort(); } catch (_) {} }
   setListening(false);
@@ -915,12 +920,17 @@ function finishRecognition(active, message, abort) {
 }
 
 function cancelVoice() {
+  keepListening = false;
+  clearTimeout(restartTimer);
   if (recognizer) finishRecognition(recognizer, '', true);
+  else setListening(false);
 }
 
 function stopVoice() {
+  keepListening = false;
+  clearTimeout(restartTimer);
   const active = recognizer;
-  if (!active) return;
+  if (!active) { setListening(false); setStatus('音声入力を停止しました。'); return; }
   clearTimeout(recognitionTimer);
   recognitionTimer = setTimeout(() => finishRecognition(active, '音声入力を停止しました。', true), 3000);
   try { active.stop(); }
@@ -929,11 +939,18 @@ function stopVoice() {
 
 function startVoice() {
   if (recognizer || $('voiceStart').disabled) return;
+  keepListening = true;
+  emptyRestarts = 0;
+  startVoiceSession(false);
+}
+
+function startVoiceSession(continuation) {
+  if (!keepListening) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) { setStatus('このブラウザーは音声入力に対応していません。'); return; }
+  if (!Recognition) { keepListening = false; setListening(false); setStatus('このブラウザーは音声入力に対応していません。'); return; }
   let active;
   try { active = new Recognition(); }
-  catch (_) { setStatus('音声入力を開始できませんでした。'); return; }
+  catch (_) { keepListening = false; setListening(false); setStatus('音声入力を開始できませんでした。'); return; }
   recognizer = active;
   const original = transcript.value;
   active.lang = 'ja-JP';
@@ -944,12 +961,14 @@ function startVoice() {
     if (recognizer !== active) return;
     const pieces = [];
     for (let i = 0; i < event.results.length; i++) pieces.push(event.results[i][0]?.transcript || '');
-    const spoken = pieces.join('');
+    let spoken = pieces.join('').replace(/報告者(?:[\s、,。]*報告者)+/g, '報告者');
+    if (continuation && /報告者\s*$/.test(original)) spoken = spoken.replace(/^\s*報告者/, '');
     const combined = original + (original && spoken ? '\n' : '') + spoken;
     transcript.value = combined.slice(0, 10000);
     if (combined.length > 10000) finishRecognition(active, '文字起こしが10,000文字に達しました。', true);
   };
   active.onerror = event => {
+    if (event.error === 'no-speech' && keepListening) return;
     const errors = {
       'not-allowed':'マイクの利用が許可されていません。',
       'service-not-allowed':'音声認識サービスを利用できません。',
@@ -960,7 +979,15 @@ function startVoice() {
     };
     finishRecognition(active, errors[event.error] || '音声入力を開始できませんでした。', true);
   };
-  active.onend = () => finishRecognition(active, '音声入力を停止しました。', false);
+  active.onend = () => {
+    if (recognizer !== active) return;
+    if (!keepListening) { finishRecognition(active, '音声入力を停止しました。', false); return; }
+    emptyRestarts = transcript.value === original ? emptyRestarts + 1 : 0;
+    if (emptyRestarts >= 3) { finishRecognition(active, '音声を認識できませんでした。', false); return; }
+    recognizer = null;
+    active.onresult = active.onend = active.onerror = null;
+    restartTimer = setTimeout(() => startVoiceSession(true), 250);
+  };
   setListening(true);
   setStatus('音声を入力中…');
   try { active.start(); }
