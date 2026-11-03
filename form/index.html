@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-02nVbkGFfegux0n23wuVzexOZit1kH1Uc0nJu3zirbs=' 'sha256-JVet7f43qRcLT3/fE3IOiAGbL5gR9M7qL6HXv8F3+Wg='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-JVet7f43qRcLT3/fE3IOiAGbL5gR9M7qL6HXv8F3+Wg='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -823,9 +823,10 @@ var Api = (() => {
   const pending = new Map();
   let relayWindow = null;
   let sequence = 0;
+  let rejectedRelay = false;
   let connect;
   const ready = new Promise(resolve => { connect = resolve; });
-  const failure = () => ({ok:false,error:{code:'EXTERNAL_SERVICE_ERROR',message:'保存先に接続できませんでした。',fieldErrors:{},retryable:true}});
+  const failure = phase => ({ok:false,error:{code:'EXTERNAL_SERVICE_ERROR',message:{C1:'保存先の読み込みが完了しませんでした（C1）。',C2:'保存先の接続元を確認できませんでした（C2）。',C3:'保存先からの応答を確認できませんでした（C3）。'}[phase],fieldErrors:{},retryable:true}});
   function belongsToRelay(source) {
     // Apps Script wraps the relay in nested cross-origin frames. Verify the
     // window ancestry as well as the per-load token before trusting its origin.
@@ -839,7 +840,8 @@ var Api = (() => {
   }
   window.addEventListener('message', event => {
     const message = event.data;
-    if (!/^https:\/\/(?:[a-z0-9-]+-script|script)\.googleusercontent\.com$/.test(event.origin) || !belongsToRelay(event.source) || !message || message.kind !== 'cdp-form-relay' || message.token !== token) return;
+    if (!message || message.kind !== 'cdp-form-relay' || message.token !== token) return;
+    if (!/^https:\/\/(?:[a-z0-9-]+-script|script)\.googleusercontent\.com$/.test(event.origin) || !belongsToRelay(event.source)) { rejectedRelay = true; return; }
     if (relayOrigin && event.origin !== relayOrigin) return;
     if (relayWindow && event.source !== relayWindow) return;
     if (message.type === 'ready') {
@@ -853,7 +855,10 @@ var Api = (() => {
       select.replaceChildren(new Option('選択してください', ''), ...message.reporters.map(name => new Option(name, name)));
       connect(true);
     } else if (message.type === 'response' && relayWindow === event.source && pending.has(message.id)) {
-      pending.get(message.id)(message.response);
+      const response = message.response;
+      if (response && response.ok === false && response.error && response.error.code === 'EXTERNAL_SERVICE_ERROR') {
+        pending.get(message.id)({...response,error:{...response.error,message:response.error.message+'（C4）'}});
+      } else pending.get(message.id)(response);
     }
   });
   const frame = document.createElement('iframe');
@@ -863,10 +868,10 @@ var Api = (() => {
   document.body.appendChild(frame);
   async function invoke(request) {
     const connected = await Promise.race([ready, new Promise(resolve => setTimeout(() => resolve(false), 25000))]);
-    if (!connected || !relayWindow) return failure();
+    if (!connected || !relayWindow) return failure(rejectedRelay ? 'C2' : 'C1');
     return new Promise(resolve => {
       const id = String(++sequence);
-      const timer = setTimeout(() => done(failure()), 45000);
+      const timer = setTimeout(() => done(failure('C3')), 45000);
       function done(response) { clearTimeout(timer); pending.delete(id); resolve(response); }
       pending.set(id, done);
       relayWindow.postMessage({kind:'cdp-form-relay',token,type:'request',id,request}, relayOrigin);
