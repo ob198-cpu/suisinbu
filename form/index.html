@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-qmUK/lhMWG61i8omoRfPpYNK8lRFMsuwGAQIjCG57lo=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-vldTSQhKE4ZjWsOQBgc5qiE3oGwNF3HFC9OVo1QStx4='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-qmUK/lhMWG61i8omoRfPpYNK8lRFMsuwGAQIjCG57lo=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-iKAkjtFDJP8FCU7pcOjA/Ge/aSjXjeISTP+iqPOskKA='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -24,6 +24,7 @@ html{-webkit-text-size-adjust:100%}
 .voice-steps span{display:block;color:#43566d;font-size:15px;line-height:1.5}
 .voice-line{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .voice-line .btn{min-height:48px;font-size:16px}
+#voiceKeyboard{width:100%;min-height:48px;margin:8px 0 12px;font-size:16px}
 #voiceApply{display:block;width:100%;min-height:48px;margin-top:8px;font-size:16px}
 .voice-transcript-label{display:block;margin:12px 0 5px;font-size:16px;font-weight:700}
 .voice-transcript{width:100%;min-height:124px;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;line-height:1.55;resize:vertical;background:#fff}
@@ -65,7 +66,7 @@ html{-webkit-text-size-adjust:100%}
 <main class="wrap">
 <header class="top"><h1>推進部システム入力フォーム</h1><p>必要な情報をまとめて話し、文字を確認してから各欄へ入力できます。</p><span class="pill">試験版・音声入力対応</span></header>
 <section class="card">
-<details class="voice"><summary>音声入力</summary><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「案件名は屋根点検。案件種別は請負業務／点検。実施日・期限は10月末。売上げ見込みは未定。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></details>
+<details class="voice"><summary>音声入力</summary><ol class="voice-steps" aria-label="音声入力の手順"><li><strong>① 話す</strong><span>「話し始める」を押し、必要な情報をまとめて話します。</span></li><li><strong>② 文字を確認</strong><span>「話し終える」を押し、文字起こしの誤りを直します。</span></li><li><strong>③ 項目に反映</strong><span>ボタンを押して各入力欄に振り分けます。</span></li><li><strong>④ 送信前に確認</strong><span>各欄と不足情報を確認してから報告します。</span></li></ol><p>例：「案件名は屋根点検。案件種別は請負業務／点検。実施日・期限は10月末。売上げ見込みは未定。」項目名を付けて話すと振り分けやすくなります。</p><div class="voice-line"><button type="button" class="btn primary" id="voiceStart">話し始める</button><button type="button" class="btn stop" id="voiceStop" disabled>話し終える</button></div><button type="button" class="btn" id="voiceKeyboard">キーボードで音声入力</button><label class="voice-transcript-label" for="voiceTranscript">文字起こし（ここで修正できます）</label><textarea id="voiceTranscript" class="voice-transcript" placeholder="音声を文字にした内容がここに表示されます。直接入力して振り分けることもできます。"></textarea><button type="button" class="btn primary" id="voiceApply" disabled>内容を項目に反映</button><p class="voice-status" id="voiceStatus" role="status" aria-live="polite">準備完了</p><div class="voice-result" id="voiceResult" aria-live="polite"></div></details>
 <form id="reportForm" novalidate>
 <div class="form">
 <div class="field" data-field="reporterName"><label for="reporterName">報告者(氏名)<span class="req">必須</span></label><select id="reporterName" required aria-describedby="reporterName-error" aria-controls="reporterNameOtherField" aria-expanded="false"><option value="">選択してください</option></select><span id="reporterNameOtherField" hidden><label for="reporterNameOther">報告者氏名（その他）<span class="req">必須</span></label><input id="reporterNameOther" maxlength="120" disabled autocomplete="name" aria-describedby="reporterName-error" placeholder="氏名を入力してください"></span><span class="err" id="reporterName-error"></span></div>
@@ -926,7 +927,7 @@ function syncOtherReporterField(){
 $('reporterName').addEventListener('change',syncOtherReporterField);
 syncOtherReporterField();
 function setStatus(t){status.textContent=t}
-function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
+function setListening(value){listening=value;$('voiceStart').disabled=value;$('voiceKeyboard').disabled=value;$('voiceStop').disabled=!value;$('voiceApply').disabled=value||!transcript.value.trim();transcript.readOnly=value}
 let recognizer = null;
 let recognitionTimer;
 let restartTimer;
@@ -987,6 +988,15 @@ function startVoice() {
   startVoiceSession(false);
 }
 
+function useKeyboardVoice() {
+  if (transcript.disabled || $('voiceKeyboard').disabled || disabledBeforeLock.size) return;
+  cancelVoice();
+  transcript.focus();
+  transcript.setSelectionRange(transcript.value.length, transcript.value.length);
+  transcript.scrollIntoView({block:'nearest'});
+  setStatus('文字起こし欄を開きました。');
+}
+
 function startVoiceSession(continuation) {
   if (!keepListening) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1012,7 +1022,7 @@ function startVoiceSession(continuation) {
   active.onerror = event => {
     if (event.error === 'no-speech' && keepListening) return;
     const errors = {
-      'not-allowed':'マイクの利用が許可されていません。',
+      'not-allowed':'この画面では音声認識を開始できません。',
       'service-not-allowed':'音声認識サービスを利用できません。',
       'audio-capture':'マイクを使用できません。',
       'network':'音声認識の通信に失敗しました。',
@@ -1063,7 +1073,7 @@ const NATIVE_PENDING_KEY='cdp_anonymous_report_pending_v1';
 let formReady=false,pendingSubmission=null,submissionSaved=false,saveBusy=false,checkingConnection=false;
 const disabledBeforeLock=new Map();
 function lockForm(locked){
-  const controls=[...form.querySelectorAll('input,select,textarea'),$('voiceStart'),$('voiceStop'),$('voiceApply'),transcript];
+  const controls=[...form.querySelectorAll('input,select,textarea'),$('voiceStart'),$('voiceStop'),$('voiceApply'),$('voiceKeyboard'),transcript];
   controls.forEach(control=>{
     if(locked){if(!disabledBeforeLock.has(control))disabledBeforeLock.set(control,control.disabled);control.disabled=true;}
     else if(disabledBeforeLock.has(control)){control.disabled=disabledBeforeLock.get(control);disabledBeforeLock.delete(control);}
@@ -1163,6 +1173,7 @@ form.addEventListener('submit',e=>{
   sendPending();
 });
 $('voiceStart').addEventListener('click',startVoice);
+$('voiceKeyboard').addEventListener('click',useKeyboardVoice);
 $('voiceStop').addEventListener('click',stopVoice);
 $('voiceApply').addEventListener('click',applyTranscript);
 transcript.addEventListener('input',()=>{$('voiceApply').disabled=listening||!transcript.value.trim()});
