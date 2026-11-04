@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-qmUK/lhMWG61i8omoRfPpYNK8lRFMsuwGAQIjCG57lo=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-iKAkjtFDJP8FCU7pcOjA/Ge/aSjXjeISTP+iqPOskKA='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-qmUK/lhMWG61i8omoRfPpYNK8lRFMsuwGAQIjCG57lo=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-RkMXLiMU1JSC6Dtnlxx0j7mG9TtXi9/G+6rsLvoIxIU='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -934,20 +934,15 @@ let restartTimer;
 let keepListening = false;
 let emptyRestarts = 0;
 
-// Some Android engines expose growing hypotheses as separate result slots.
-// Replace only a growing structured field prefix; independent speech stays intact.
+// Rebuild from confirmed slots only. Provisional text must not become the
+// next recognition session's base when Android ends a session unexpectedly.
 function recognitionText(results) {
   const pieces = [];
-  const fieldStart = /^(?:報告者|部署名|案件名|案件種別|案件先|先方担当者|会社名|連絡先|実施日|売上げ?見込み|備考)/;
-  const headingOnly = /^(?:報告者|部署名|案件名|案件種別|案件先|先方担当者|会社名|連絡先|実施日|売上げ?見込み|備考)$/;
   for (let i = 0; i < results.length; i++) {
-    const text = results[i][0]?.transcript || '';
-    const previous = pieces[pieces.length - 1];
-    if (previous && (!previous.final || headingOnly.test(previous.text.trim())) && fieldStart.test(previous.text.trim()) && text.trim().length > previous.text.trim().length && text.trim().startsWith(previous.text.trim())) {
-      pieces[pieces.length - 1] = {text, final: results[i].isFinal === true};
-    } else pieces.push({text, final: results[i].isFinal === true});
+    if (results[i].isFinal !== true) continue;
+    pieces.push(results[i][0]?.transcript || '');
   }
-  return pieces.map(piece => piece.text).join('');
+  return pieces.join('');
 }
 
 function finishRecognition(active, message, abort) {
@@ -1008,7 +1003,7 @@ function startVoiceSession(continuation) {
   const original = transcript.value;
   active.lang = 'ja-JP';
   active.continuous = true;
-  active.interimResults = true;
+  active.interimResults = false;
   active.maxAlternatives = 1;
   active.onresult = event => {
     if (recognizer !== active) return;
