@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-IremyMtt7zXqFoybrg4H4bmbJpZ2XB49MmZt9F2fFxE=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-sUNYFrKWpSy8IUwAISxt1j1VhuXI94whJEIkuQ1SkGk='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-rptsCkaBqKS4y7zmX9wGQVl6kAK/XM4GFaSzXWC9JEg=' 'sha256-qmUK/lhMWG61i8omoRfPpYNK8lRFMsuwGAQIjCG57lo=' 'sha256-s5iFWzXoD/ntB1ivTsYUxap0lZz4q0h3+hjQcIO6iBM=' 'sha256-vldTSQhKE4ZjWsOQBgc5qiE3oGwNF3HFC9OVo1QStx4='; style-src 'unsafe-inline'; frame-src https://script.google.com https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="referrer" content="no-referrer">
 <base target="_top">
@@ -530,7 +530,34 @@ html{-webkit-text-size-adjust:100%}
     return /(?:^|[。！？\n])\s*(?:報告者|所属部署|部署名|会社名|顧客名|案件種別|案件[、,]\s*未分類|(?:講習|請負|打ち合わせ|問い合わせ|その他)?案件を知った日|案件発生日|発生経路|紹介者名|紹介者との関係|希望時期|希望時間|緊急度|先方担当者|予算の把握状況|想定予算|相談内容)/.test(value);
   }
 
+  function normalizeDictation(transcript) {
+    var source = String(transcript || '');
+    // Only repeated, explicit headings at a sentence start are repaired.
+    // Do not deduplicate arbitrary words, names or free text.
+    var labels = aliasEntries.filter(function (entry) { return entry.alias.length >= 3 && !entry.field.multiline; })
+      .map(function (entry) { return entry.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
+    source = source.replace(new RegExp('(^|[。！？\\n])([ \\t　]*)(' + labels + ')(?:[ \\t　、,]*\\3)+', 'g'), '$1$2$3 ');
+    var reportForm = typeof window !== 'undefined' && window.CdpReportForm;
+    if (!reportForm) return source;
+    var reporter = reportForm.fields.find(function (field) { return field.key === 'reporterName'; });
+    var department = reportForm.fields.find(function (field) { return field.key === 'reporterDepartment'; });
+    // A department on its own line directly after an explicit reporter is
+    // unambiguous only when it exactly matches a current department choice.
+    source = source.replace(/(^|\n)(報告者[^\n]+)\n[ \t　]*([^\n]+)(?=\n|$)/g, function (all, start, name, value) {
+      return department && department.choices.includes(value.trim()) ? start + name + '\n部署名 ' + value.trim() : all;
+    });
+    function spelling(name) { return name.replace(/[斎齋齊]/g, '斉').replace(/髙/g, '高'); }
+    source = source.replace(/(^|\n)(報告者[ \t　]+)([^\n。！？]+)/g, function (all, start, label, raw) {
+      var value = raw.trim();
+      if (!reporter || reporter.choices.includes(value)) return all;
+      var matches = reporter.choices.filter(function (choice) { return choice !== 'その他' && spelling(choice) === spelling(value); });
+      return matches.length === 1 ? start + label + matches[0] : all;
+    });
+    return source;
+  }
+
   function parseTranscript(transcript) {
+    transcript = normalizeDictation(transcript);
     var source = String(transcript || '').trim();
     // A single, explicit reporter field may arrive without spaces, or the
     // recognizer may repeat the field label. Only accept an exact current
@@ -906,6 +933,22 @@ let restartTimer;
 let keepListening = false;
 let emptyRestarts = 0;
 
+// Some Android engines expose growing hypotheses as separate result slots.
+// Replace only a growing structured field prefix; independent speech stays intact.
+function recognitionText(results) {
+  const pieces = [];
+  const fieldStart = /^(?:報告者|部署名|案件名|案件種別|案件先|先方担当者|会社名|連絡先|実施日|売上げ?見込み|備考)/;
+  const headingOnly = /^(?:報告者|部署名|案件名|案件種別|案件先|先方担当者|会社名|連絡先|実施日|売上げ?見込み|備考)$/;
+  for (let i = 0; i < results.length; i++) {
+    const text = results[i][0]?.transcript || '';
+    const previous = pieces[pieces.length - 1];
+    if (previous && (!previous.final || headingOnly.test(previous.text.trim())) && fieldStart.test(previous.text.trim()) && text.trim().length > previous.text.trim().length && text.trim().startsWith(previous.text.trim())) {
+      pieces[pieces.length - 1] = {text, final: results[i].isFinal === true};
+    } else pieces.push({text, final: results[i].isFinal === true});
+  }
+  return pieces.map(piece => piece.text).join('');
+}
+
 function finishRecognition(active, message, abort) {
   if (recognizer !== active) return;
   recognizer = null;
@@ -959,9 +1002,7 @@ function startVoiceSession(continuation) {
   active.maxAlternatives = 1;
   active.onresult = event => {
     if (recognizer !== active) return;
-    const pieces = [];
-    for (let i = 0; i < event.results.length; i++) pieces.push(event.results[i][0]?.transcript || '');
-    let spoken = pieces.join('').replace(/(報告者|部署名)(?:[\s、,。]*\1)+/g, '$1');
+    let spoken = recognitionText(event.results).replace(/(報告者|部署名|案件名|案件種別|案件先会社名|会社名|案件先担当者|案件先担当者連絡先)(?:[\s、,。]*\1)+/g, '$1');
     const boundaryLabel = original.match(/(報告者|部署名)\s*$/)?.[1];
     if (continuation && boundaryLabel) spoken = spoken.replace(new RegExp('^\\s*' + boundaryLabel), '');
     const combined = original + (original && spoken ? '\n' : '') + spoken;
