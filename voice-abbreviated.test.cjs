@@ -343,52 +343,16 @@ test('補正見出しでも否定や複数の選択値を勝手に確定しな�
 });
 
 test('実際の反映処理は現行10項目だけを入力し、原文・手入力と選択肢を保護する', () => {
-  for (const sample of [transcript, latestTranscript]) {
-  const fs = require('node:fs');
+  // リポジトリ内の現行フォーム本体を検査する。外部stagingや旧配備版に依存しない。
   const path = require('node:path');
-  const vm = require('node:vm');
-  const parser = require('./form/voice-parser.js');
-  const contract = require('./form/report-form.js');
-  const html = fs.readFileSync(path.join(__dirname, 'form', 'index.html'), 'utf8');
-  const script = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(Boolean);
-  const ids = ['reportForm', 'voiceStatus', 'voiceStart', 'voiceStop', 'voiceTranscript', 'voiceApply', 'voiceResult', 'clearBtn', 'reporterNameOther', 'reporterNameOtherField', ...contract.fields.map(field => field.key)];
-  const elements = Object.fromEntries(ids.map(id => [id, {
-    id, tagName: ['reporterName','reporterDepartment','caseKind'].includes(id) ? 'SELECT' : 'INPUT',
-    value: '', textContent: '', maxLength: -1, listeners: {},
-    attributes:{},setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];},
-    addEventListener(type, handler) { this.listeners[type] = handler; }
-  }]));
-  elements.reportForm.querySelectorAll = selector => selector === 'input,select,textarea' ? contract.fields.map(field => elements[field.key]).concat(elements.reporterNameOther) : [];
-  const context = vm.createContext({ document: { getElementById: id => elements[id] }, window: { CdpVoiceParser: parser, CdpReportForm: contract }, CdpVoiceParser: parser, CdpReportForm: contract });
-  vm.runInContext(script, context);
-  elements.voiceTranscript.value = sample;
-  elements.voiceApply.listeners.click();
-  const expected = sample === transcript
-    ? {reporterName:'',reporterDepartment:'',orgName:'架空 建設会社',caseKind:'',desiredTime:'9月'}
-    : {reporterName:'',reporterDepartment:'',orgName:'',caseKind:'講習'};
-  for (const [id, value] of Object.entries(expected))
-    assert.equal(elements[id].value, value, id);
-  assert.equal(elements.voiceTranscript.value, sample);
-  assert.match(elements.voiceResult.textContent, sample === transcript ? /死亡時期.*希望時期/ : /編集.*報告者/);
-  assert.equal(elements.summary, undefined, '削除された概要欄を復活させない');
-  elements.orgName.value = '手入力した架空会社';
-  elements.orgName.listeners.input();
-  elements.caseKind.value = 'その他';
-  elements.caseKind.listeners.change();
-  elements.voiceApply.listeners.click();
-  assert.equal(elements.orgName.value, '手入力した架空会社');
-  assert.equal(elements.caseKind.value, 'その他');
-  assert.equal(elements.voiceTranscript.value, sample);
-  // 報告者の既知選択だけは、手動選択後も明示された音声氏名へ切り替える。
-  elements.reporterName.value = '小田';elements.reporterName.listeners.change();
-  elements.voiceTranscript.value = '報告者 横山 管理部。案件 サンプル。案件種別 学校。';
-  elements.voiceApply.listeners.click();
-  assert.equal(elements.reporterName.value, '横山');
-  assert.equal(elements.caseKind.value, 'その他', '他の手入力済み選択は保護する');
-  assert.equal(elements.orgName.value, '手入力した架空会社');
-  elements.reporterName.value = 'その他';elements.reporterName.listeners.change();
-  elements.reporterNameOther.value = '手入力の架空担当';elements.reporterNameOther.listeners.input();
-  elements.voiceApply.listeners.click();
-  assert.equal(elements.reporterName.value, 'その他');assert.equal(elements.reporterNameOther.value, '手入力の架空担当');
-  }
+  const { spawnSync } = require('node:child_process');
+  const current = path.join(__dirname, 'form/voice-application.test.cjs');
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', current], { encoding: 'utf8', env });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, '現行フォームの反映検査に失敗: ' + result.stdout + result.stderr);
+  assert.match(result.stdout, /^# tests 14\r?$/m, '現行フォームの14検査すべてを実行する');
+  assert.match(result.stdout, /^# pass 14\r?$/m, '現行フォームの14検査すべてに合格する');
+  assert.match(result.stdout, /^# skipped 0\r?$/m, '検査をスキップして成功扱いにしない');
 });
